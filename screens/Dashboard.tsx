@@ -5,7 +5,7 @@ import { Card } from "react-native-paper";
 import RNSpeedometer from "react-native-speedometer";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
-import { RootStackParamList } from "../navigationTypes"; 
+import { RootStackParamList } from "../navigationTypes";
 import { BluetoothContext } from "../services/BluetoothServices";  // ✅ Import Bluetooth Context
 
 const DashboardScreen = () => {
@@ -17,45 +17,61 @@ const DashboardScreen = () => {
   return (
     <LinearGradient colors={["#2C5364", "#203A43", "#0F2027"]} style={styles.container}>
       
-      {/* Back Button (Transparent Background) */}
+      {/* 🔙 Back Button (Transparent Background) */}
       <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("Home")}>
         <Text style={styles.backText}>←</Text>
       </TouchableOpacity>
 
       <Text style={styles.title}>Motor Dashboard</Text>
 
-      {/* Show Connection Status */}
+      {/* ✅ Show Connection Status */}
       <Text style={styles.connectionStatus}>
         {connectedDevice ? `✅ Connected to ${connectedDevice.name}` : "❌ Not Connected"}
       </Text>
 
-      {/* Speedometer Graphic */}
+      {/* 📊 Speedometer Display */}
       <View style={styles.speedometerContainer}>
-        <RNSpeedometer value={connectedDevice ? data.rpm / 60 : 0} maxValue={100} size={250} />
+        <RNSpeedometer
+          value={data["0xCF11E05"]?.rpm ?? 0} // ✅ Show RPM safely
+          maxValue={6000} // Adjust maxValue based on actual limits
+          size={250}
+        />
       </View>
 
-      {/* Data Card */}
-      <Card style={styles.card}>
-        <Card.Title title="Motor Parameters" titleStyle={styles.cardTitle} />
-        <Card.Content>
-          <Text style={styles.dataText}>⚙️ RPM: {connectedDevice ? data.rpm : "No Data"}</Text>
-          <Text style={styles.dataText}>🔋 Voltage: {connectedDevice ? `${data.voltage.toFixed(1)}V` : "No Data"}</Text>
-          <Text style={styles.dataText}>🎛️ Throttle: {connectedDevice ? `${data.throttle}%` : "No Data"}</Text>
-          <Text style={styles.dataText}>🌡️ Temperature: {connectedDevice ? `${data.temperature.toFixed(1)}°C` : "No Data"}</Text>
-        </Card.Content>
-      </Card>
+      {/* 📦 Display Controller Instrument Data (0xCF11E05) */}
+{data["0xCF11E05"] && (
+  <Card style={styles.card}>
+    <Card.Title title="Motor Parameters" titleStyle={styles.cardTitle} />
+    <Card.Content>
+      <Text style={styles.dataText}>⚙️ RPM: {data["0xCF11E05"].rpm}</Text>
+      <Text style={styles.dataText}>🔋 Voltage: {data["0xCF11E05"].voltage}V</Text>
+      <Text style={styles.dataText}>⚡ Current: {data["0xCF11E05"].current}A</Text>
 
-      {/* Error Messages */}
-      {data.errors.length > 0 && (
-        <Card style={styles.errorCard}>
-          <Card.Title title="⚠️ Errors Detected" titleStyle={styles.errorTitle} />
-          <Card.Content>
-            {data.errors.map((error: string, index: number) => (
-              <Text key={index} style={styles.errorText}>🔴 {error}</Text>
-            ))}
-          </Card.Content>
-        </Card>
-      )}
+      {/* 🚨 Show Errors Only If Present */}
+{data["0xCF11E05"]?.errors?.length > 0 && (
+  <View style={styles.errorContainer}>
+    <Text style={styles.errorTitle}>⚠️ Errors Detected:</Text>
+    {data["0xCF11E05"].errors.map((error: string, index: number) => (
+      <Text key={index} style={styles.errorText}>🔴 {error}</Text>
+    ))}
+  </View>
+)}
+
+    </Card.Content>
+  </Card>
+)}
+
+{/* 📦 Display Additional Controller Data (0xCF11F05) */}
+{data["0xCF11F05"] && (
+  <Card style={styles.card}>
+    <Card.Title title="Controller Status" titleStyle={styles.cardTitle} />
+    <Card.Content>
+      <Text style={styles.dataText}>🎛️ Throttle: {data["0xCF11F05"].throttle}V</Text>
+      <Text style={styles.dataText}>🌡️ Controller Temp: {data["0xCF11F05"].controllerTemp}°C</Text>
+      <Text style={styles.dataText}>🌡️ Motor Temp: {data["0xCF11F05"].motorTemp}°C</Text>
+    </Card.Content>
+  </Card>
+)}
 
     </LinearGradient>
   );
@@ -126,16 +142,11 @@ const styles = StyleSheet.create({
     marginTop: 5,
     fontWeight: "600",
   },
-  errorCard: {
-    width: "90%",
+  errorContainer: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 8,
     backgroundColor: "#FF4D4D",
-    marginTop: 20,
-    padding: 15,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 2, height: 2 },
-    elevation: 5,
   },
   errorTitle: {
     color: "#fff",

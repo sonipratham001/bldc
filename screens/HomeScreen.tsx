@@ -28,7 +28,7 @@ const HomeScreen = () => {
     manager.startDeviceScan(null, null, (error, device) => {
       if (error) {
         console.error("Scan Error:", error);
-        Alert.alert("Error", "Failed to scan for devices. Turn On your device Bluetooth");
+        Alert.alert("Error", "Failed to scan for devices. Turn on your device Bluetooth");
         setIsScanning(false);
         return;
       }
@@ -52,11 +52,13 @@ const HomeScreen = () => {
   return (
     <LinearGradient colors={["#2C5364", "#203A43", "#0F2027"]} style={styles.container}>
       {/* Company Logo */}
-      <Image source={require("../assets/intuteLogo.png")} style={styles.logo} />
+      <View style={styles.logoContainer}>
+        <Image source={require("../assets/intuteLogo.png")} style={styles.logo} />
+      </View>
 
       {/* Connection Status Message */}
       <Text style={styles.title}>
-        {connectedDevice ? "Your app is connected to ESP32" : "App is Disconnected"}
+        {connectedDevice ? "✅ Connected to ESP32" : "❌ App is Disconnected"}
       </Text>
 
       {/* Scan for Bluetooth Devices Button */}
@@ -81,29 +83,23 @@ const HomeScreen = () => {
 
       {/* Disconnect Button */}
       {connectedDevice && (
-        <TouchableOpacity style={[styles.button, { backgroundColor: "red" }]} onPress={disconnectDevice}>
+        <TouchableOpacity style={[styles.button, styles.disconnectButton]} onPress={disconnectDevice}>
           <Text style={styles.buttonText}>Disconnect</Text>
         </TouchableOpacity>
       )}
-      
-      {/* Button to Go to Control Screen */}
-<TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Control")}>
-  <Text style={styles.buttonText}>🎛️ Control Motor</Text>
-</TouchableOpacity>
-
 
       {/* Button to Go to Dashboard */}
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate("Dashboard")}>
-        <Text style={styles.buttonText}>Go to Dashboard</Text>
+        <Text style={styles.buttonText}>📊 Go to Dashboard</Text>
       </TouchableOpacity>
 
       {/* Footer Navigation */}
       <View style={styles.footer}>
         <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate("Home")}>
-          <Text style={styles.footerText}>Home</Text>
+          <Text style={styles.footerText}>🏠 Home</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate("Dashboard")}>
-          <Text style={styles.footerText}>Dashboard</Text>
+          <Text style={styles.footerText}>📊 Dashboard</Text>
         </TouchableOpacity>
       </View>
     </LinearGradient>
@@ -117,20 +113,23 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#121212",
     paddingBottom: 60,
-    paddingTop: 20,
+    paddingTop: 40,
+  },
+  logoContainer: {
+    alignItems: "center",
+    marginBottom: 30,
+    width: "100%",
   },
   logo: {
-    width: 300,
-    height: 200,
+    width: 350, // Increased from 250
+    height: 200, // Increased from 120
     resizeMode: "contain",
-    marginBottom: 50,
-    marginLeft: 80,
   },
   title: {
-    fontSize: 24,
+    fontSize: 22,
     color: "#fff",
     textAlign: "center",
-    marginBottom: 20,
+    marginBottom: 15,
     fontWeight: "bold",
   },
   button: {
@@ -138,10 +137,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
     borderRadius: 8,
     marginTop: 15,
-    marginBottom: 25,
+    marginBottom: 20,
   },
   scanButton: {
     backgroundColor: "#4CAF50",
+  },
+  disconnectButton: {
+    backgroundColor: "#FF4D4D",
   },
   buttonText: {
     color: "#fff",
@@ -150,12 +152,15 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: 20,
+    width: "100%",
+    alignItems: "center",
   },
   deviceItem: {
     backgroundColor: "#fff",
-    padding: 15,
-    marginVertical: 8,
-    borderRadius: 12,
+    padding: 12,
+    marginVertical: 6,
+    borderRadius: 10,
+    width: "90%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -168,7 +173,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   deviceName: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "600",
   },
   deviceId: {
@@ -190,6 +195,7 @@ const styles = StyleSheet.create({
   footerText: {
     color: "#fff",
     fontSize: 16,
+    fontWeight: "bold",
   },
 });
 
