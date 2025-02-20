@@ -1,163 +1,76 @@
 import React, { useContext } from "react";
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
-import LinearGradient from "react-native-linear-gradient";
-import { Card } from "react-native-paper";
-import RNSpeedometer from "react-native-speedometer";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useNavigation } from "@react-navigation/native";
-import { RootStackParamList } from "../navigationTypes";
-import { BluetoothContext } from "../services/BluetoothServices";  // ✅ Import Bluetooth Context
+import { View, Text, StyleSheet } from "react-native";
+import { BluetoothContext } from "../services/BluetoothServices";
 
 const DashboardScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, "Dashboard">>();
-
-  // ✅ Get live data from Bluetooth Service
-  const { connectedDevice, data } = useContext(BluetoothContext);
+  const { data, connectedDevice } = useContext(BluetoothContext);
 
   return (
-    <LinearGradient colors={["#2C5364", "#203A43", "#0F2027"]} style={styles.container}>
-      
-      {/* 🔙 Back Button (Transparent Background) */}
-      <TouchableOpacity style={styles.backButton} onPress={() => navigation.navigate("Home")}>
-        <Text style={styles.backText}>←</Text>
-      </TouchableOpacity>
+    <View style={styles.container}>
+      <Text style={styles.title}>🚀 BLDC Motor Dashboard</Text>
 
-      <Text style={styles.title}>Motor Dashboard</Text>
+      {connectedDevice ? (
+        <View style={styles.dataContainer}>
+          <Text style={styles.dataText}>⚡ Speed: {data.speed || "N/A"} RPM</Text>
+          <Text style={styles.dataText}>🔋 Voltage: {data.voltage || "N/A"} V</Text>
+          <Text style={styles.dataText}>🔌 Current: {data.current || "N/A"} A</Text>
+          <Text style={styles.dataText}>🌡 Controller Temp: {data.controllerTemp || "N/A"} °C</Text>
+          <Text style={styles.dataText}>🌡 Motor Temp: {data.motorTemp || "N/A"} °C</Text>
+          <Text style={styles.dataText}>🎛 Throttle: {data.throttle?.toFixed(2) || "N/A"} V</Text>
 
-      {/* ✅ Show Connection Status */}
-      <Text style={styles.connectionStatus}>
-        {connectedDevice ? `✅ Connected to ${connectedDevice.name}` : "❌ Not Connected"}
-      </Text>
+          {/* Error Messages */}
+          <Text style={styles.errorTitle}>🚨 Errors:</Text>
+          {data.errorMessages?.map((error: string, index: number) => (
+  <Text key={index} style={styles.errorText}>• {error}</Text>
+))}
 
-      {/* 📊 Speedometer Display */}
-      <View style={styles.speedometerContainer}>
-        <RNSpeedometer
-          value={data["0xCF11E05"]?.rpm ?? 0} // ✅ Show RPM safely
-          maxValue={6000} // Adjust maxValue based on actual limits
-          size={250}
-        />
-      </View>
-
-      {/* 📦 Display Controller Instrument Data (0xCF11E05) */}
-{data["0xCF11E05"] && (
-  <Card style={styles.card}>
-    <Card.Title title="Motor Parameters" titleStyle={styles.cardTitle} />
-    <Card.Content>
-      <Text style={styles.dataText}>⚙️ RPM: {data["0xCF11E05"].rpm}</Text>
-      <Text style={styles.dataText}>🔋 Voltage: {data["0xCF11E05"].voltage}V</Text>
-      <Text style={styles.dataText}>⚡ Current: {data["0xCF11E05"].current}A</Text>
-
-      {/* 🚨 Show Errors Only If Present */}
-{data["0xCF11E05"]?.errors?.length > 0 && (
-  <View style={styles.errorContainer}>
-    <Text style={styles.errorTitle}>⚠️ Errors Detected:</Text>
-    {data["0xCF11E05"].errors.map((error: string, index: number) => (
-      <Text key={index} style={styles.errorText}>🔴 {error}</Text>
-    ))}
-  </View>
-)}
-
-    </Card.Content>
-  </Card>
-)}
-
-{/* 📦 Display Additional Controller Data (0xCF11F05) */}
-{data["0xCF11F05"] && (
-  <Card style={styles.card}>
-    <Card.Title title="Controller Status" titleStyle={styles.cardTitle} />
-    <Card.Content>
-      <Text style={styles.dataText}>🎛️ Throttle: {data["0xCF11F05"].throttle}V</Text>
-      <Text style={styles.dataText}>🌡️ Controller Temp: {data["0xCF11F05"].controllerTemp}°C</Text>
-      <Text style={styles.dataText}>🌡️ Motor Temp: {data["0xCF11F05"].motorTemp}°C</Text>
-    </Card.Content>
-  </Card>
-)}
-
-    </LinearGradient>
+        </View>
+      ) : (
+        <Text style={styles.disconnected}>❌ Not Connected to ESP32</Text>
+      )}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
+    flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 20,
-  },
-  backButton: {
-    position: "absolute",
-    top: 40,
-    left: 20,
-    padding: 5,
-  },
-  backText: {
-    fontSize: 32,
-    color: "#fff",
-    fontWeight: "bold",
+    backgroundColor: "#121212",
   },
   title: {
-    fontSize: 26,
+    fontSize: 24,
+    fontWeight: "bold",
     color: "#fff",
-    fontWeight: "bold",
-    textTransform: "uppercase",
-    marginBottom: 10,
-  },
-  connectionStatus: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#FFD700",
-    marginBottom: 15,
-  },
-  speedometerContainer: {
-    backgroundColor: "#ffffff20",
-    padding: 15,
-    paddingBottom: 60,
-    borderRadius: 20,
     marginBottom: 20,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 2, height: 2 },
-    elevation: 5,
   },
-  card: {
-    width: "90%",
+  dataContainer: {
     backgroundColor: "#1E1E1E",
-    marginTop: 20,
-    padding: 15,
+    padding: 20,
     borderRadius: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 2, height: 2 },
-    elevation: 5,
-  },
-  cardTitle: {
-    color: "#FF6B6B",
-    fontSize: 22,
-    fontWeight: "bold",
-    alignContent: "center",
+    width: "90%",
+    alignItems: "center",
   },
   dataText: {
     fontSize: 18,
     color: "#fff",
-    marginTop: 5,
-    fontWeight: "600",
-  },
-  errorContainer: {
-    marginTop: 10,
-    padding: 10,
-    borderRadius: 8,
-    backgroundColor: "#FF4D4D",
+    marginVertical: 5,
   },
   errorTitle: {
-    color: "#fff",
     fontSize: 20,
     fontWeight: "bold",
+    color: "#FF4D4D",
+    marginTop: 15,
   },
   errorText: {
     fontSize: 16,
-    color: "#fff",
-    marginTop: 5,
-    fontWeight: "600",
+    color: "#FF4D4D",
+  },
+  disconnected: {
+    fontSize: 18,
+    color: "#FF4D4D",
+    marginTop: 20,
   },
 });
 

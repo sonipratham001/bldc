@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, Alert } from "react-native";
+import { View, Text, Image, TouchableOpacity, StyleSheet, FlatList, Alert, ActivityIndicator } from "react-native";
 import { BluetoothContext } from "../services/BluetoothServices";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
@@ -18,9 +18,15 @@ const HomeScreen = () => {
 
   useEffect(() => {
     requestBluetoothPermissions();
+
+    return () => {
+      manager.stopDeviceScan(); // Stop scanning if the user leaves the screen
+    };
   }, []);
 
   const startScan = async () => {
+    if (isScanning) return; // Prevent multiple scans
+
     await requestBluetoothPermissions();
     setDevices([]); // Clear previous scan results
     setIsScanning(true);
@@ -49,6 +55,12 @@ const HomeScreen = () => {
     }, 10000);
   };
 
+  const handleConnect = async (device: Device) => {
+    await connectToDevice(device);
+    manager.stopDeviceScan(); // Stop scanning once connected
+    setIsScanning(false);
+  };
+
   return (
     <LinearGradient colors={["#2C5364", "#203A43", "#0F2027"]} style={styles.container}>
       {/* Company Logo */}
@@ -66,12 +78,15 @@ const HomeScreen = () => {
         <Text style={styles.buttonText}>{isScanning ? "Scanning..." : "Scan for Bluetooth Devices"}</Text>
       </TouchableOpacity>
 
+      {/* Show loading indicator when scanning */}
+      {isScanning && <ActivityIndicator size="large" color="#4CAF50" style={{ marginBottom: 10 }} />}
+
       {/* List of Scanned Devices */}
       <FlatList
         data={devices}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.deviceItem} onPress={() => connectToDevice(item)}>
+          <TouchableOpacity style={styles.deviceItem} onPress={() => handleConnect(item)}>
             <View style={styles.deviceDetails}>
               <Text style={styles.deviceName}>{item.name || "Unknown Device"}</Text>
               <Text style={styles.deviceId}>{item.id}</Text>
@@ -79,6 +94,7 @@ const HomeScreen = () => {
           </TouchableOpacity>
         )}
         contentContainerStyle={styles.list}
+        ListEmptyComponent={!isScanning ? <Text style={styles.noDevices}>No devices found</Text> : null}
       />
 
       {/* Disconnect Button */}
@@ -121,8 +137,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   logo: {
-    width: 350, // Increased from 250
-    height: 200, // Increased from 120
+    width: 350,
+    height: 200,
     resizeMode: "contain",
   },
   title: {
@@ -179,6 +195,12 @@ const styles = StyleSheet.create({
   deviceId: {
     fontSize: 14,
     color: "#555",
+  },
+  noDevices: {
+    color: "#bbb",
+    fontSize: 16,
+    textAlign: "center",
+    marginTop: 10,
   },
   footer: {
     position: "absolute",
