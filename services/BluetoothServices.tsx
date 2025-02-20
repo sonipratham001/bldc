@@ -92,12 +92,12 @@ export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const parseBluetoothData = (rawData: string) => {
     const buffer = Buffer.from(rawData, "base64"); // Convert Base64 to Buffer
     if (buffer.length < 8) return {}; // Ignore incomplete messages
-
+  
     const messageID = buffer.readUInt32BE(0); // Extract message ID
-    const payload = buffer.slice(4); // Extract payload data
-
+    const payload = buffer.subarray(4); // ✅ Fixed: Use subarray() instead of slice()
+  
     let parsedData: any = {};
-
+  
     if (messageID === 0xCF11E05) {
       // Message 1: Speed, Current, Voltage, Error Codes
       const errorCode = (payload.readUInt8(7) * 256) + payload.readUInt8(6); // Combine 2 bytes to get 16-bit error code
@@ -116,9 +116,10 @@ export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         motorTemp: payload.readUInt8(2) - 30, // °C
       };
     }
-
+  
     return parsedData;
   };
+  
 
   // ✅ Decode Error Bits to Human-Readable Messages
   const decodeErrors = (errorCode: number): string[] => {
