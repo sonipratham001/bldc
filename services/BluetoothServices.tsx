@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect } from "react";
+import React, { createContext, useState } from "react";
 import { BleManager, Device } from "react-native-ble-plx";
 import { Buffer } from "buffer";
 
@@ -12,33 +12,24 @@ const ERROR_CODES: { [key: number]: string } = {
   0: "Identification error: Failed to identify motor angle.",
   1: "Over voltage: Battery voltage too high.",
   2: "Low voltage: Battery voltage too low.",
-  3: "Reserved (No error).",
+  3: "Reserved.",
   4: "Stall: No speed feedback from motor.",
   5: "Internal voltage fault: Possible wiring or controller issue.",
   6: "Over temperature: Controller exceeded 100°C.",
   7: "Throttle error: Unexpected throttle signal at power-up.",
-  8: "Reserved (No error).",
+  8: "Reserved.",
   9: "Internal reset: Temporary fault or power fluctuation.",
   10: "Hall throttle error: Open or short circuit detected.",
   11: "Angle sensor error: Speed sensor misconfiguration.",
-  12: "Reserved (No error).",
-  13: "Reserved (No error).",
+  12: "Reserved.",
+  13: "Reserved.",
   14: "Motor over-temperature: Motor temperature exceeded limit.",
   15: "Hall Galvanometer sensor error: Internal controller fault.",
 };
 
 export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
-  const [data, setData] = useState<{
-    speed?: number;
-    current?: number;
-    voltage?: number;
-    controllerTemp?: number;
-    motorTemp?: number;
-    throttle?: number;
-    errorCode?: number;
-    errorMessages?: string[];
-  }>({});
+  const [data, setData] = useState<any>({}); // This will now hold combined data from both messages
 
   const connectToDevice = async (device: Device) => {
     try {
@@ -46,7 +37,6 @@ export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       await device.discoverAllServicesAndCharacteristics();
       setConnectedDevice(device);
 
-      // Fetch and log all services & characteristics
       const services = await device.services();
       for (const service of services) {
         console.log(`🔹 Service UUID: ${service.uuid}`);
@@ -56,25 +46,30 @@ export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           console.log(`   ├── Characteristic UUID: ${characteristic.uuid}`);
           console.log(`   ├── Is Notifiable: ${characteristic.isNotifiable}`);
           console.log(`   ├── Is Readable: ${characteristic.isReadable}`);
-          console.log(`   ├── Is Writable: ${characteristic.isWritableWithResponse || characteristic.isWritableWithoutResponse}`);
+          console.log(
+            `   ├── Is Writable: ${characteristic.isWritableWithResponse || characteristic.isWritableWithoutResponse}`
+          );
         }
       }
 
-      // ✅ Start Monitoring for Data (Replace with Correct UUIDs)
-      const serviceUUID = "YOUR_SERVICE_UUID"; // Replace this
-      const characteristicUUID = "YOUR_CHARACTERISTIC_UUID"; // Replace this
+      const serviceUUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"; // Replace with actual UUID
+      const characteristicUUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"; // Replace with actual UUID
 
       device.monitorCharacteristicForService(serviceUUID, characteristicUUID, (error, characteristic) => {
         if (error) {
-          console.error("Bluetooth Read Error:", error);
+          console.error("❌ Bluetooth Read Error:", error);
           return;
         }
+
         if (characteristic?.value) {
+          console.log(`📩 Raw Data Received: ${characteristic.value}`);
           const decodedData = parseBluetoothData(characteristic.value);
-          setData(decodedData);
+          console.log("✅ Decoded Data:", decodedData);
+          setData((prevData: any) => ({ ...prevData, ...decodedData })); // Merge new data with existing data
+        } else {
+          console.log("⚠ No Data Received!");
         }
       });
-
     } catch (error) {
       console.error("Connection Error:", error);
     }
@@ -90,47 +85,85 @@ export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // ✅ Function to Decode CAN Bus Messages from ESP32
   const parseBluetoothData = (rawData: string) => {
-    const buffer = Buffer.from(rawData, "base64"); // Convert Base64 to Buffer
-    if (buffer.length < 8) return {}; // Ignore incomplete messages
-  
-    const messageID = buffer.readUInt32BE(0); // Extract message ID
-    const payload = buffer.subarray(4); // ✅ Fixed: Use subarray() instead of slice()
-  
-    let parsedData: any = {};
-  
-    if (messageID === 0xCF11E05) {
-      // Message 1: Speed, Current, Voltage, Error Codes
-      const errorCode = (payload.readUInt8(7) * 256) + payload.readUInt8(6); // Combine 2 bytes to get 16-bit error code
-      parsedData = {
-        speed: (payload.readUInt8(1) * 256) + payload.readUInt8(0), // RPM
-        current: ((payload.readUInt8(3) * 256) + payload.readUInt8(2)) / 10, // A
-        voltage: ((payload.readUInt8(5) * 256) + payload.readUInt8(4)) / 10, // V
-        errorCode,
-        errorMessages: decodeErrors(errorCode), // Convert error code to human-readable messages
-      };
-    } else if (messageID === 0xCF11F05) {
-      // Message 2: Throttle, Temperatures
-      parsedData = {
-        throttle: payload.readUInt8(0) * (5 / 255), // Convert 0-255 to 0-5V
-        controllerTemp: payload.readUInt8(1) - 40, // °C
-        motorTemp: payload.readUInt8(2) - 30, // °C
-      };
+    const buffer = Buffer.from(rawData, "base64");
+    console.log("📦 Converted Buffer (Raw Bytes):", buffer);
+    console.log("📏 Received Buffer Length:", buffer.length);
+
+    if (buffer.length < 8) {
+      console.warn("⚠ Warning: Buffer too short, ignoring message!");
+      return { error: "Insufficient data received", bufferLength: buffer.length };
     }
-  
-    return parsedData;
+
+    const messageID = buffer.readUInt32BE(0).toString(16);
+    const payload = buffer.slice(4); // Extract CAN payload
+
+    console.log("🔹 Message ID:", messageID);
+    console.log("📊 Payload Data (Hex):", payload.toString("hex"));
+
+    if (messageID === "cf11e05") {
+      if (payload.length < 8) return { error: "Invalid Message 1 Data", bufferLength: payload.length };
+      return { message1: parseMessage1(payload) }; // Wrap Message 1 data in an object
+    } else if (messageID === "cf11f05") {
+      if (payload.length < 8) return { error: "Invalid Message 2 Data", bufferLength: payload.length };
+      return { message2: parseMessage2(payload) }; // Wrap Message 2 data in an object
+    } else {
+      return { error: "Unknown Message ID", messageID, bufferLength: payload.length };
+    }
   };
-  
+
+  // ✅ Function to parse Message 1 (Speed, Voltage, Current, Errors)
+  const parseMessage1 = (buffer: Buffer) => {
+    if (buffer.length < 8) {
+      console.warn("⚠ Warning: Invalid Message 1 Data, buffer too short!");
+      return { error: "Invalid Message 1 Data", bufferLength: buffer.length };
+    }
+
+    return {
+      messageType: "Speed/Voltage/Current Data",
+      speed: buffer.readUInt8(1) * 256 + buffer.readUInt8(0),
+      current: (buffer.readUInt8(3) * 256 + buffer.readUInt8(2)) / 10,
+      voltage: (buffer.readUInt8(5) * 256 + buffer.readUInt8(4)) / 10,
+      errorCode: buffer.length >= 9 ? buffer.readUInt8(7) | (buffer.readUInt8(8) << 8) : 0, // Ensure buffer has enough bytes
+      errorMessages: buffer.length >= 9 ? decodeErrors(buffer.readUInt8(7) | (buffer.readUInt8(8) << 8)) : ["No Error Data"],
+    };
+  };
+
+  // ✅ Function to parse Message 2 (Throttle, Temperature, Controller Status)
+const parseMessage2 = (buffer: Buffer) => {
+  if (buffer.length < 8) {
+    console.warn("⚠ Warning: Invalid Message 2 Data, buffer too short!");
+    return { error: "Invalid Message 2 Data", bufferLength: buffer.length };
+  }
+
+  const switchSignals = buffer.readUInt8(5);
+
+  return {
+    messageType: "Throttle/Temperature/Controller Status",
+    throttle: buffer.readUInt8(0),
+    controllerTemp: buffer.readUInt8(1) - 40,
+    motorTemp: buffer.readUInt8(2) - 30,
+    controllerStatus: buffer.readUInt8(4) & 0b11, // Extract lower 2 bits (Neutral, Forward, Backward)
+    switchSignals: {
+      boost: (switchSignals & 0b10000000) !== 0,       // BIT7
+      footswitch: (switchSignals & 0b01000000) !== 0,  // BIT6
+      forward: (switchSignals & 0b00100000) !== 0,     // BIT5
+      backward: (switchSignals & 0b00010000) !== 0,    // BIT4
+      brake: (switchSignals & 0b00001000) !== 0,       // BIT3
+      hallC: (switchSignals & 0b00000100) !== 0,       // BIT2
+      hallB: (switchSignals & 0b00000010) !== 0,       // BIT1
+      hallA: (switchSignals & 0b00000001) !== 0,       // BIT0
+    },
+  };
+};
 
   // ✅ Decode Error Bits to Human-Readable Messages
   const decodeErrors = (errorCode: number): string[] => {
     let errors: string[] = [];
-
     for (let i = 0; i < 16; i++) {
       if ((errorCode >> i) & 1) {
-        errors.push(ERROR_CODES[i]); // Add active error
+        errors.push(ERROR_CODES[i]);
       }
     }
-
     return errors.length > 0 ? errors : ["No Errors Detected"];
   };
 

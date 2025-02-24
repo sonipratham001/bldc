@@ -73,31 +73,35 @@ const HomeScreen = () => {
         {connectedDevice ? "✅ Connected to ESP32" : "❌ App is Disconnected"}
       </Text>
 
-      {/* Scan for Bluetooth Devices Button */}
-      <TouchableOpacity style={[styles.button, styles.scanButton]} onPress={startScan} disabled={isScanning}>
-        <Text style={styles.buttonText}>{isScanning ? "Scanning..." : "Scan for Bluetooth Devices"}</Text>
-      </TouchableOpacity>
+      {/* Show "Scan for Devices" button only when not connected */}
+      {!connectedDevice && (
+        <TouchableOpacity style={[styles.button, styles.scanButton]} onPress={startScan} disabled={isScanning}>
+          <Text style={styles.buttonText}>{isScanning ? "Scanning..." : "Scan for Bluetooth Devices"}</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Show loading indicator when scanning */}
       {isScanning && <ActivityIndicator size="large" color="#4CAF50" style={{ marginBottom: 10 }} />}
 
-      {/* List of Scanned Devices */}
-      <FlatList
-        data={devices}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.deviceItem} onPress={() => handleConnect(item)}>
-            <View style={styles.deviceDetails}>
-              <Text style={styles.deviceName}>{item.name || "Unknown Device"}</Text>
-              <Text style={styles.deviceId}>{item.id}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
-        contentContainerStyle={styles.list}
-        ListEmptyComponent={!isScanning ? <Text style={styles.noDevices}>No devices found</Text> : null}
-      />
+      {/* Show list of devices only when NOT connected */}
+      {!connectedDevice && (
+        <FlatList
+          data={devices}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity style={styles.deviceItem} onPress={() => handleConnect(item)}>
+              <View style={styles.deviceDetails}>
+                <Text style={styles.deviceName}>{item.name || "Unknown Device"}</Text>
+                <Text style={styles.deviceId}>{item.id}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          contentContainerStyle={styles.list}
+          ListEmptyComponent={!isScanning ? <Text style={styles.noDevices}>No devices found</Text> : null}
+        />
+      )}
 
-      {/* Disconnect Button */}
+      {/* Disconnect Button (Visible only when connected) */}
       {connectedDevice && (
         <TouchableOpacity style={[styles.button, styles.disconnectButton]} onPress={disconnectDevice}>
           <Text style={styles.buttonText}>Disconnect</Text>
@@ -140,20 +144,21 @@ const styles = StyleSheet.create({
     width: 350,
     height: 200,
     resizeMode: "contain",
+    marginLeft: 80,
   },
   title: {
-    fontSize: 22,
+    fontSize: 30,
     color: "#fff",
     textAlign: "center",
-    marginBottom: 15,
+    marginBottom: 85,
     fontWeight: "bold",
   },
   button: {
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingVertical: 22,
+    paddingHorizontal: 40,
     borderRadius: 8,
     marginTop: 15,
-    marginBottom: 20,
+    marginBottom: 40,
   },
   scanButton: {
     backgroundColor: "#4CAF50",
@@ -163,7 +168,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
   },
   list: {
