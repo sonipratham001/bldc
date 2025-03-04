@@ -1,7 +1,9 @@
-apply plugin: "com.android.application"
-apply plugin: "org.jetbrains.kotlin.android"
-apply plugin: "com.facebook.react"
-
+plugins {
+    id 'com.android.application'
+    id 'com.google.gms.google-services' // ✅ Correct Firebase Plugin
+    id 'org.jetbrains.kotlin.android'
+    id 'com.facebook.react'
+}
 /**
  * This is the configuration block to customize your React Native Android app.
  * By default you don't need to apply any configuration, just uncomment the lines you need.
@@ -111,15 +113,23 @@ android {
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
     }
+    defaultConfig {
+        missingDimensionStrategy 'store', 'play' // Force the 'play' flavor for Google Play
+    }
 }
 
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-
+    implementation platform('com.google.firebase:firebase-bom:33.9.0')
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation "com.android.billingclient:billing:6.0.1"
+    implementation project(':react-native-iap')
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'

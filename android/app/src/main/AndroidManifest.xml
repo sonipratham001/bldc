@@ -1,4 +1,4 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.myproject">
 
     <!-- Required Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -8,6 +8,7 @@
 <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
 <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
 <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE" />
+<uses-permission android:name="com.android.vending.BILLING" />
 <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
     <!-- Bluetooth LE Feature -->
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="true" />
