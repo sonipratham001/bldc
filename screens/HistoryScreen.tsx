@@ -1,25 +1,45 @@
-import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TouchableOpacity, Alert, Share } from "react-native";
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  Alert,
+  Share,
+} from 'react-native';
 import { getApp } from '@react-native-firebase/app';
-import { getFirestore, doc, collection, query, orderBy, limit, onSnapshot, Timestamp, where, startAfter } from '@react-native-firebase/firestore';
-import { getAuth } from '@react-native-firebase/auth';
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useNavigation } from "@react-navigation/native";
-import { RootStackParamList } from "../navigationTypes";
-import LinearGradient from "react-native-linear-gradient";
+import {
+  getFirestore,
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  Timestamp,
+  where,
+  startAfter,
+} from '@react-native-firebase/firestore';
+import { getAuth, signOut } from '@react-native-firebase/auth';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import { RootStackParamList } from '../navigationTypes'; // Adjust path as needed
+import LinearGradient from 'react-native-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import SideMenu from './SideMenu'; // Import the new SideMenu component (adjust path)
 
 interface EVData {
   id: string;
   speed: number;
   voltage: number;
   current: number;
-  errorCode: number;
-  errorMessages: string[];
-  throttle: number;
   controllerTemp: number;
   motorTemp: number;
-  controllerStatus: number;
+  throttle: number;
+  errorCode: number | null;
+  errorMessages: string[] | null;
+  controllerStatus: string | null;
   switchSignals: {
     boost: boolean;
     footswitch: boolean;
@@ -30,157 +50,106 @@ interface EVData {
     hallB: boolean;
     hallA: boolean;
   };
-  timestamp: any; // Firestore timestamp
+  timestamp: Timestamp;
 }
 
 const HistoryScreen = () => {
   const [evData, setEvData] = useState<EVData[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [lastVisible, setLastVisible] = useState<any>(null); // Track the last document for pagination
-  const [hasMore, setHasMore] = useState<boolean>(true); // Track if there’s more data to load
-  const [startDate, setStartDate] = useState<Date | null>(null); // Start date for filtering
-  const [endDate, setEndDate] = useState<Date | null>(null); // End date for filtering
-  const [showStartPicker, setShowStartPicker] = useState<boolean>(false); // Control start date picker visibility
-  const [showEndPicker, setShowEndPicker] = useState<boolean>(false); // Control end date picker visibility
-  const [filterOption, setFilterOption] = useState<string>("All Time"); // Predefined filter option
+  const [lastVisible, setLastVisible] = useState<any>(null);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
+  const [showStartPicker, setShowStartPicker] = useState<boolean>(false);
+  const [showEndPicker, setShowEndPicker] = useState<boolean>(false);
+  const [filterOption, setFilterOption] = useState<string>('');
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
 
-  // Initialize Firebase modular instances
   const app = getApp();
   const db = getFirestore(app);
   const auth = getAuth(app);
   const user = auth.currentUser;
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'History'>>();
 
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, "History">>();
-
-  // Apply predefined filter to set date range
-  const applyPredefinedFilter = (option: string) => {
-    setFilterOption(option);
-    setStartDate(null);
-    setEndDate(null);
-    setEvData([]); // Reset data to apply new filter
-
+  const applyFilter = (days: number | null) => {
     const now = new Date();
-    switch (option) {
-      case "Last 7 Days":
-        setStartDate(new Date(now.setDate(now.getDate() - 7)));
-        break;
-      case "Last 30 Days":
-        setStartDate(new Date(now.setDate(now.getDate() - 30)));
-        break;
-      case "All Time":
-        setStartDate(null);
-        setEndDate(null);
-        break;
-      default:
-        setStartDate(null);
-        setEndDate(null);
-    }
+    setFilterOption(days ? `Last ${days} Day${days > 1 ? 's' : ''}` : 'All Time');
+    setStartDate(days ? new Date(now.setDate(now.getDate() - days)) : null);
+    setEndDate(days ? new Date() : null);
+    setEvData([]);
   };
 
-  // Fetch data with optional date filter, predefined filter, and pagination using real-time listener
-  const fetchData = useCallback((startAfterDoc: any = null) => {
-    if (!user) {
-      setLoading(false);
-      return () => {}; // Return empty unsubscribe function if no user
-    }
-
-    setLoading(true);
-    const userDocRef = doc(db, 'users', user.uid);
-    const evDataCollection = collection(userDocRef, 'ev_data');
-
-    // Build query constraints
-    let constraints = [
-      orderBy('timestamp', 'desc'),
-      limit(20),
-    ];
-
-    if (startAfterDoc) {
-      constraints.push(startAfter(startAfterDoc));
-    }
-
-    if (startDate) {
-      constraints.push(where('timestamp', '>=', Timestamp.fromDate(startDate)));
-    }
-
-    if (endDate) {
-      constraints.push(where('timestamp', '<=', Timestamp.fromDate(endDate)));
-    }
-
-    const q = query(evDataCollection, ...constraints);
-
-    const unsubscribe = onSnapshot(
-      q,
-      (querySnapshot) => {
-        const newData: EVData[] = [];
-        querySnapshot.forEach((docSnapshot) => {
-          newData.push({ id: docSnapshot.id, ...docSnapshot.data() } as EVData);
-        });
-
-        setEvData(newData); // Update data with real-time changes
-        setLastVisible(querySnapshot.docs[querySnapshot.docs.length - 1] || null); // Update last visible document
-        setHasMore(querySnapshot.docs.length === 20); // Check if we’ve hit the limit (more data exists)
-        setLoading(false); // Stop loading once data is fetched
-      },
-      (error) => {
-        console.error('Error fetching data: ', error);
-        Alert.alert('Error', 'Failed to load historical data. Please check your internet connection.');
-        setLoading(false); // Stop loading on error
+  const fetchData = useCallback(
+    (startAfterDoc: any = null) => {
+      if (!user || (!startDate && !endDate)) {
+        setLoading(false);
+        return () => {};
       }
-    );
 
-    return unsubscribe; // Return unsubscribe function for cleanup
-  }, [user, startDate, endDate, db]);
+      setLoading(true);
+      const constraints = [
+        orderBy('timestamp', 'desc'),
+        limit(20),
+        ...(startDate ? [where('timestamp', '>=', Timestamp.fromDate(startDate))] : []),
+        ...(endDate ? [where('timestamp', '<=', Timestamp.fromDate(endDate))] : []),
+        ...(startAfterDoc ? [startAfter(startAfterDoc)] : []),
+      ];
+
+      const q = query(collection(db, 'users', user.uid, 'ev_data'), ...constraints);
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const newData = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          } as EVData));
+          setEvData((prev) => (startAfterDoc ? [...prev, ...newData] : newData));
+          setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+          setHasMore(snapshot.docs.length === 20);
+          setLoading(false);
+        },
+        (error) => {
+          console.error('Error fetching data:', error);
+          Alert.alert('Error', 'Failed to load data. Please try again.');
+          setLoading(false);
+        }
+      );
+
+      return unsubscribe;
+    },
+    [user, startDate, endDate, db]
+  );
 
   useEffect(() => {
-    const unsubscribe = fetchData(); // Initial data fetch with real-time listener
+    const unsubscribe = fetchData();
+    return () => unsubscribe();
+  }, [fetchData]);
 
-    // Clean up the listener when the component unmounts or filters change
-    return () => {
-      if (typeof unsubscribe === 'function') {
-        unsubscribe();
-      }
-      setEvData([]); // Reset data on unmount
-    };
-  }, [fetchData]); // Re-run when filters change
-
-  // Load more data when user scrolls to the end (manually trigger fetch for next page)
   const loadMore = () => {
     if (!loading && hasMore && lastVisible) {
       fetchData(lastVisible);
     }
   };
 
-  // Handle date picker changes
-  const onStartDateChange = (event: any, selectedDate: Date | undefined) => {
-    setShowStartPicker(false);
-    if (selectedDate) {
-      setStartDate(selectedDate);
-      setFilterOption("Custom"); // Switch to custom filter when manually selecting dates
-      setEvData([]); // Reset data to apply new filter
-    }
-  };
-
-  const onEndDateChange = (event: any, selectedDate: Date | undefined) => {
-    setShowEndPicker(false);
-    if (selectedDate) {
-      setEndDate(selectedDate);
-      setFilterOption("Custom"); // Switch to custom filter when manually selecting dates
-      setEvData([]); // Reset data to apply new filter
-    }
-  };
-
-  // Export data as CSV and share
-  const exportAndShareData = async () => {
+  const exportData = async () => {
     if (evData.length === 0) {
       Alert.alert('No Data', 'There is no data to export.');
       return;
     }
 
-    // Generate CSV content
-    const headers = 'Timestamp,Speed (RPM),Voltage (V),Current (A),Controller Temp (°C),Motor Temp (°C),Throttle,Controller Status,Boost\n';
-    const rows = evData.map(item => 
-      `${item.timestamp?.toDate().toLocaleString()},${item.speed},${item.voltage},${item.current},${item.controllerTemp},${item.motorTemp},${item.throttle},${item.controllerStatus},${item.switchSignals.boost ? 'ON' : 'OFF'}`
-    ).join('\n');
+    const headers =
+      'Timestamp,Speed (RPM),Voltage (V),Current (A),Controller Temp (°C),Motor Temp (°C),Throttle,Controller Status,Boost\n';
+    const rows = evData
+      .map(
+        (item) =>
+          `${item.timestamp?.toDate().toLocaleString()},${item.speed},${item.voltage},${
+            item.current
+          },${item.controllerTemp},${item.motorTemp},${item.throttle},${item.controllerStatus},${
+            item.switchSignals.boost ? 'ON' : 'OFF'
+          }`
+      )
+      .join('\n');
     const csvContent = headers + rows;
 
     try {
@@ -199,248 +168,346 @@ const HistoryScreen = () => {
     }
   };
 
+  // Removed handleLogout and handleSubscribe since they’re now in SideMenu
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
+
   const renderItem = ({ item }: { item: EVData }) => (
-    <View style={styles.item}>
-      <Text style={styles.label}>Speed: {item.speed ?? "N/A"} RPM</Text>
-      <Text style={styles.label}>Voltage: {item.voltage ?? "N/A"} V</Text>
-      <Text style={styles.label}>Current: {item.current ?? "N/A"} A</Text>
-      <Text style={styles.label}>Timestamp: {item.timestamp?.toDate().toLocaleString()}</Text>
-      <Text style={styles.label}>Controller Temp: {item.controllerTemp ?? "N/A"} °C</Text>
-      <Text style={styles.label}>Motor Temp: {item.motorTemp ?? "N/A"} °C</Text>
-      <Text style={styles.label}>Throttle: {item.throttle ?? "N/A"}</Text>
-      <Text style={styles.label}>Controller Status: {item.controllerStatus ?? "N/A"}</Text>
-      <Text style={styles.label}>Boost: {item.switchSignals?.boost ? "ON" : "OFF"}</Text>
+    <View style={styles.card}>
+      <Text style={styles.cardTime}>{item.timestamp.toDate().toLocaleString()}</Text>
+      <View style={styles.cardRow}>
+        <MetricItem label="Speed" value={`${item.speed} RPM`} />
+        <MetricItem label="Voltage" value={`${item.voltage} V`} />
+      </View>
+      <View style={styles.cardRow}>
+        <MetricItem label="Current" value={`${item.current} A`} />
+        <MetricItem label="Controller Temp" value={`${item.controllerTemp}°C`} />
+      </View>
+      <View style={styles.cardRow}>
+        <MetricItem label="Motor Temp" value={`${item.motorTemp}°C`} />
+        <MetricItem label="Throttle" value={`${((item.throttle / 255) * 5).toFixed(2)} V`} />
+      </View>
+      {item.errorCode && (
+        <View style={styles.cardRow}>
+          <Text style={styles.metricValue}>Error Code: {item.errorCode}</Text>
+          {item.errorMessages &&
+            item.errorMessages.map((msg, index) => (
+              <Text key={index} style={styles.metricValue}>
+                Error: {msg}
+              </Text>
+            ))}
+        </View>
+      )}
+      {item.controllerStatus && (
+        <View style={styles.cardRow}>
+          <Text style={styles.metricValue}>Controller Status: {item.controllerStatus}</Text>
+        </View>
+      )}
+      <View style={styles.boostIndicator}>
+        <Text style={[styles.boostText, item.switchSignals.boost && styles.boostActive]}>
+          Boost: {item.switchSignals.boost ? 'ON' : 'OFF'}
+        </Text>
+      </View>
+      <View style={styles.boostIndicator}>
+        <Text style={styles.boostText}>
+          Footswitch: {item.switchSignals.footswitch ? 'ON' : 'OFF'}
+        </Text>
+      </View>
+      <View style={styles.boostIndicator}>
+        <Text style={styles.boostText}>
+          Forward: {item.switchSignals.forward ? 'ON' : 'OFF'}
+        </Text>
+      </View>
+      <View style={styles.boostIndicator}>
+        <Text style={styles.boostText}>
+          Backward: {item.switchSignals.backward ? 'ON' : 'OFF'}
+        </Text>
+      </View>
+      <View style={styles.boostIndicator}>
+        <Text style={styles.boostText}>Brake: {item.switchSignals.brake ? 'ON' : 'OFF'}</Text>
+      </View>
+      <View style={styles.boostIndicator}>
+        <Text style={styles.boostText}>Hall C: {item.switchSignals.hallC ? 'ON' : 'OFF'}</Text>
+      </View>
+      <View style={styles.boostIndicator}>
+        <Text style={styles.boostText}>Hall B: {item.switchSignals.hallB ? 'ON' : 'OFF'}</Text>
+      </View>
+      <View style={styles.boostIndicator}>
+        <Text style={styles.boostText}>Hall A: {item.switchSignals.hallA ? 'ON' : 'OFF'}</Text>
+      </View>
     </View>
   );
 
-  if (loading && evData.length === 0) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4CAF50" />
+  const MetricItem = ({ label, value }: { label: string; value: string }) => (
+    <View style={styles.metricContainer}>
+      <View style={styles.metricTexts}>
+        <Text style={styles.metricLabel}>{label}</Text>
+        <Text style={styles.metricValue}>{value}</Text>
       </View>
-    );
-  }
+    </View>
+  );
 
   return (
-    <LinearGradient colors={["#2C5364", "#203A43", "#0F2027"]} style={styles.container}>
-      <Text style={styles.title}>Historical EV Data</Text>
-
-      {/* Predefined Filter Buttons */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity
-          style={[styles.filterButton, filterOption === "Last 7 Days" && styles.activeFilter]}
-          onPress={() => applyPredefinedFilter("Last 7 Days")}
-        >
-          <Text style={[styles.filterButtonText, filterOption === "Last 7 Days" && styles.activeFilterText]}>Last 7 Days</Text>
+    <LinearGradient colors={['#2C5364', '#203A43', '#0F2027']} style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.menuButton} onPress={toggleMenu} activeOpacity={0.7}>
+          <Text style={styles.menuIcon}>☰</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filterOption === "Last 30 Days" && styles.activeFilter]}
-          onPress={() => applyPredefinedFilter("Last 30 Days")}
-        >
-          <Text style={[styles.filterButtonText, filterOption === "Last 30 Days" && styles.activeFilterText]}>Last 30 Days</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filterButton, filterOption === "All Time" && styles.activeFilter]}
-          onPress={() => applyPredefinedFilter("All Time")}
-        >
-          <Text style={[styles.filterButtonText, filterOption === "All Time" && styles.activeFilterText]}>All Time</Text>
-        </TouchableOpacity>
+        <Text style={styles.title}>📜 Historical Data</Text>
       </View>
 
-      {/* Custom Date Filter Inputs */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity style={styles.dateButton} onPress={() => setShowStartPicker(true)}>
-          <Text style={styles.dateButtonText}>
-            Start Date: {startDate ? startDate.toLocaleDateString() : "Select Start"}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.dateButton} onPress={() => setShowEndPicker(true)}>
-          <Text style={styles.dateButtonText}>
-            End Date: {endDate ? endDate.toLocaleDateString() : "Select End"}
-          </Text>
-        </TouchableOpacity>
-      </View>
+      <FlatList
+        data={evData}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.5}
+        ListHeaderComponent={
+          <>
+            <View style={styles.filterContainer}>
+              <TouchableOpacity
+                style={[styles.filterButton, filterOption === 'Last 1 Day' && styles.activeFilter]}
+                onPress={() => applyFilter(1)}
+              >
+                <Text style={styles.filterButtonText}>24 Hours</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterButton, filterOption === 'Last 7 Days' && styles.activeFilter]}
+                onPress={() => applyFilter(7)}
+              >
+                <Text style={styles.filterButtonText}>7 Days</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.filterButton, filterOption === 'All Time' && styles.activeFilter]}
+                onPress={() => applyFilter(null)}
+              >
+                <Text style={styles.filterButtonText}>All Time</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.dateContainer}>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowStartPicker(true)}
+              >
+                <Text style={{ fontSize: 18, color: '#fff' }}>📅</Text>
+                <Text style={styles.dateButtonText}>
+                  {startDate ? startDate.toLocaleDateString() : 'Start Date'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.dateButton} onPress={() => setShowEndPicker(true)}>
+                <Text style={{ fontSize: 18, color: '#fff' }}>📅</Text>
+                <Text style={styles.dateButtonText}>
+                  {endDate ? endDate.toLocaleDateString() : 'End Date'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity style={styles.exportButton} onPress={exportData}>
+              <Text style={{ fontSize: 20, color: '#fff', marginRight: 8 }}>⬇️</Text>
+              <Text style={styles.exportButtonText}>Export Data</Text>
+            </TouchableOpacity>
+          </>
+        }
+        ListFooterComponent={loading ? <ActivityIndicator color="#4CAF50" /> : null}
+        ListEmptyComponent={
+          <View style={styles.emptyState}>
+            <Text style={{ fontSize: 50, color: '#4CAF50', textAlign: 'center' }}>⏳</Text>
+            <Text style={styles.emptyText}>No data found for selected period</Text>
+            <Text style={styles.emptySubText}>Adjust filters or check your connection</Text>
+          </View>
+        }
+        contentContainerStyle={styles.listContent}
+      />
 
-      {/* Export/Share Button */}
-      <TouchableOpacity style={[styles.button, styles.exportButton]} onPress={exportAndShareData}>
-        <Text style={styles.buttonText}>Export/Share Data</Text>
-      </TouchableOpacity>
-
-      {/* Date Pickers */}
       {showStartPicker && (
         <DateTimePicker
           value={startDate || new Date()}
           mode="date"
-          display="default"
-          onChange={onStartDateChange}
+          display="spinner"
+          onChange={(_, date) => {
+            setShowStartPicker(false);
+            date && setStartDate(date);
+          }}
         />
       )}
       {showEndPicker && (
         <DateTimePicker
           value={endDate || new Date()}
           mode="date"
-          display="default"
-          onChange={onEndDateChange}
-          minimumDate={startDate || undefined} // Ensure end date is not before start date
+          display="spinner"
+          minimumDate={startDate || undefined}
+          onChange={(_, date) => {
+            setShowEndPicker(false);
+            date && setEndDate(date);
+          }}
         />
       )}
 
-      {evData.length > 0 ? (
-        <FlatList
-          data={evData}
-          keyExtractor={(item) => item.id}
-          renderItem={renderItem}
-          style={styles.list}
-          onEndReached={loadMore}
-          onEndReachedThreshold={0.5} // Load more when 50% of the list is visible
-          ListFooterComponent={
-            loading && evData.length > 0 ? (
-              <ActivityIndicator size="small" color="#4CAF50" style={{ padding: 16 }} />
-            ) : null
-          }
-        />
-      ) : (
-        <Text style={styles.noData}>No data available for the selected period.</Text>
-      )}
-
-      {/* Footer Navigation */}
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate("Home")}>
-          <Text style={styles.footerText}>🏠 Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate("Dashboard")}>
-          <Text style={styles.footerText}>📊 Dashboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate("History")}>
-          <Text style={styles.footerText}>📜 History</Text>
-        </TouchableOpacity>
-      </View>
+      {/* Replace inline menu with SideMenu component */}
+      <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </LinearGradient>
   );
 };
 
+// Styles remain unchanged (removed sideMenu-related styles since they’re in SideMenu.tsx)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "center",
-    paddingBottom: 60,
-    paddingTop: 40,
+    paddingTop: 20,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'transparent', // Match gradient background
+    width: '90%',
+    marginBottom: 10,
+    paddingLeft: 0,
+    alignSelf: 'center',
+  },
+  listContent: {
+    paddingHorizontal: 16,
+    paddingTop: 20,
+    paddingBottom: 20,
   },
   title: {
-    fontSize: 30,
-    color: "#fff",
-    textAlign: "center",
+    fontSize: 22,
+    textAlign: 'center',
+    color: '#fff',
+    fontWeight: 'bold',
     marginBottom: 20,
-    fontWeight: "bold",
+    marginRight: 18,
+    marginLeft: 58,
   },
   filterContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
-    flexWrap: 'wrap', // Allow wrapping if buttons don’t fit on one line
-    width: '100%',
-    paddingHorizontal: 16,
+    marginBottom: 15,
+    gap: 8,
   },
   filterButton: {
-    backgroundColor: "#fff",
+    flex: 1,
     padding: 12,
+    backgroundColor: '#2c3e50',
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#4CAF50",
-    marginBottom: 8,
-    width: '30%', // Adjust width to fit three buttons horizontally
-    elevation: 5, // Enhanced shadow for Android
+    alignItems: 'center',
   },
   activeFilter: {
-    backgroundColor: "#4CAF50",
+    backgroundColor: '#4CAF50',
   },
   filterButtonText: {
-    fontSize: 14,
-    color: "#4CAF50",
-    textAlign: "center",
-    fontWeight: "bold",
+    color: '#fff',
+    fontWeight: '500',
   },
-  activeFilterText: {
-    color: "#fff", // Ensure text is visible on active (green) background
+  dateContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 20,
   },
   dateButton: {
-    backgroundColor: "#fff",
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     padding: 12,
+    backgroundColor: '#2c3e50',
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#4CAF50",
-    width: '48%',
-    elevation: 5, // Enhanced shadow for Android
   },
   dateButtonText: {
-    fontSize: 16,
-    color: "#4CAF50",
-    textAlign: "center",
-    fontWeight: "bold",
+    color: '#fff',
+    fontWeight: '500',
   },
-  button: {
-    paddingVertical: 12,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    marginTop: 10,
-    marginBottom: 10,
+  card: {
+    backgroundColor: '#1E1E1E',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    elevation: 3,
+  },
+  cardTime: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 12,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+    gap: 8,
+  },
+  metricContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  metricTexts: {
+    flex: 1,
+  },
+  metricLabel: {
+    color: '#888',
+    fontSize: 12,
+  },
+  metricValue: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  boostIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#2c3e50',
+  },
+  boostText: {
+    color: '#666',
+    fontWeight: '500',
+  },
+  boostActive: {
+    color: '#4CAF50',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    gap: 16,
+  },
+  emptyText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '500',
+  },
+  emptySubText: {
+    color: '#888',
+    fontSize: 14,
   },
   exportButton: {
-    backgroundColor: "#4CAF50", // Match other buttons in HomeScreen
-  },
-  buttonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
-  },
-  list: {
-    flex: 1,
-    width: '100%',
-    paddingHorizontal: 16,
-  },
-  item: {
-    backgroundColor: "#fff",
-    padding: 12,
-    marginBottom: 8,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    backgroundColor: '#4CAF50',
     borderRadius: 8,
-    elevation: 5, // Enhanced shadow for Android
-    width: '90%',
-    alignSelf: 'center',
+    marginVertical: 20,
   },
-  label: {
+  exportButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
     fontSize: 16,
-    color: "#333",
-    marginVertical: 2,
   },
-  noData: {
-    fontSize: 16,
-    color: "#fff",
-    textAlign: "center",
-    marginTop: 20,
+  menuButton: {
+    padding: 0,
+    marginLeft: -7,
+    marginBottom: 18,
   },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-    paddingVertical: 10,
-    backgroundColor: "#1E1E1E",
-  },
-  footerButton: {
-    padding: 10,
-  },
-  footerText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+  menuIcon: {
+    fontSize: 30,
+    color: '#fff',
+    paddingLeft: 0,
+    marginLeft: 0,
   },
 });
 

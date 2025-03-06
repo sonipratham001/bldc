@@ -1,18 +1,20 @@
-import React, { useContext, useEffect } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
-import { BluetoothContext } from "../services/BluetoothServices";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useNavigation } from "@react-navigation/native";
-import { RootStackParamList } from "../navigationTypes";
-import LinearGradient from "react-native-linear-gradient";
-import { getFirestore, collection, addDoc, serverTimestamp } from "@react-native-firebase/firestore"; // Use modular firestore
-import { getAuth } from "@react-native-firebase/auth"; // Use modular auth
-import { getApp } from "@react-native-firebase/app"; // Import getApp for modular SDK
+import React, { useContext, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { BluetoothContext } from '../services/BluetoothServices';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
+import { RootStackParamList } from '../navigationTypes';
+import LinearGradient from 'react-native-linear-gradient';
+import { getFirestore, collection, addDoc, serverTimestamp } from '@react-native-firebase/firestore';
+import { getAuth } from '@react-native-firebase/auth';
+import { getApp } from '@react-native-firebase/app';
 import Speedometer from 'react-native-speedometer';
+import SideMenu from './SideMenu';
 
 const DashboardScreen = () => {
-  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, "Dashboard">>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'Dashboard'>>();
   const { data = {}, connectedDevice } = useContext(BluetoothContext);
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
 
   const message1 = data.message1 || {};
   const message2 = data.message2 || {};
@@ -20,11 +22,8 @@ const DashboardScreen = () => {
   useEffect(() => {
     const authInstance = getAuth(getApp());
     const db = getFirestore(getApp());
-  
-    let lastSavedData: any = null;
-  
-    // Save data immediately if conditions are met on mount
-    const saveInitialData = async () => {
+
+    const saveData = async () => {
       if (
         connectedDevice &&
         data.message1 &&
@@ -47,65 +46,44 @@ const DashboardScreen = () => {
             switchSignals: data.message2.switchSignals,
             timestamp: serverTimestamp(),
           };
-  
-          if (!lastSavedData || JSON.stringify(lastSavedData) !== JSON.stringify(combinedData)) {
-            await addDoc(collection(db, 'users', user.uid, 'ev_data'), combinedData)
-              .catch((error) => {
-                console.error('Error saving initial data:', error);
-              });
-            lastSavedData = combinedData;
+
+          try {
+            await addDoc(collection(db, 'users', user.uid, 'ev_data'), combinedData);
+            console.log('Data saved successfully');
+          } catch (error) {
+            console.error('Error saving data:', error);
           }
         }
       }
     };
-  
-    saveInitialData(); // Save data immediately on mount
-  
-    // Continue saving every 3 minutes
-    const interval = setInterval(() => {
-      if (
-        connectedDevice &&
-        data.message1 &&
-        !data.message1.error &&
-        data.message2 &&
-        !data.message2.error
-      ) {
-        const user = authInstance.currentUser;
-        if (user) {
-          const combinedData = {
-            speed: data.message1.speed,
-            voltage: data.message1.voltage,
-            current: data.message1.current,
-            errorCode: data.message1.errorCode,
-            errorMessages: data.message1.errorMessages,
-            throttle: data.message2.throttle,
-            controllerTemp: data.message2.controllerTemp,
-            motorTemp: data.message2.motorTemp,
-            controllerStatus: data.message2.controllerStatus,
-            switchSignals: data.message2.switchSignals,
-            timestamp: serverTimestamp(),
-          };
-  
-          if (!lastSavedData || JSON.stringify(lastSavedData) !== JSON.stringify(combinedData)) {
-            addDoc(collection(db, 'users', user.uid, 'ev_data'), combinedData)
-              .catch((error) => {
-                console.error('Error saving data:', error);
-              });
-            lastSavedData = combinedData;
-          }
-        }
-      }
-    }, 180000); // Store data every 3 minutes (180,000ms)
-  
-    return () => clearInterval(interval); // Cleanup interval on unmount
-  }, [connectedDevice, data.message1, data.message2]); // Add dependencies to re-run effect if data changes
+
+    saveData();
+    const interval = setInterval(saveData, 300000); // 5 minutes = 300,000ms
+    return () => clearInterval(interval);
+  }, [connectedDevice, data.message1, data.message2]);
+
+  const toggleMenu = () => {
+    setIsMenuOpen(!isMenuOpen);
+  };
 
   return (
-    <LinearGradient colors={["#2C5364", "#203A43", "#0F2027"]} style={styles.container}>
-      <Text style={styles.title}>🚀 BLDC Motor Dashboard</Text>
+    <LinearGradient
+      colors={['#F5F5F5', '#E8ECEF', '#DEE2E6']} // Matching HomeScreen gradient
+      style={styles.container}
+    >
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={toggleMenu}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.menuIcon}>☰</Text>
+        </TouchableOpacity>
+        <Text style={styles.title}>🚀 BLDC Motor Dashboard</Text>
+      </View>
 
       {connectedDevice ? (
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
@@ -119,9 +97,9 @@ const DashboardScreen = () => {
                 showText
                 textStyle={styles.speedometerText}
                 needleColor="#1E90FF"
-                backgroundColor="#1E1E1E"
+                backgroundColor="#FFFFFF"
                 arcWidth={15}
-                arcBackgroundColor="#333"
+                arcBackgroundColor="#E0E0E0"
                 customArcs={[
                   { start: 0, end: 1250, color: '#00FF00' },
                   { start: 1250, end: 2500, color: '#FFFF00' },
@@ -130,28 +108,42 @@ const DashboardScreen = () => {
                 ]}
               />
               <Text style={styles.speedometerLabel}>Speed (RPM)</Text>
+              <Text style={styles.speedometerSubLabel}>Pathetically weak</Text> {/* Added sub-label */}
             </View>
 
             <Text style={styles.sectionTitle}>📊 Motor Metrics</Text>
             <View style={styles.metricRow}>
-              <Text style={[styles.dataText, styles.iconText]}>⚡ Speed: {message1.speed ?? "N/A"} RPM</Text>
+              <Text style={[styles.dataText, styles.iconText]}>
+                ⚡ Speed: {message1.speed ?? 'N/A'} RPM
+              </Text>
             </View>
             <View style={styles.metricRow}>
-              <Text style={[styles.dataText, styles.iconText]}>🔋 Battery Voltage: {message1.voltage ?? "N/A"} V</Text>
+              <Text style={[styles.dataText, styles.iconText]}>
+                🔋 Battery Voltage: {message1.voltage ?? 'N/A'} V
+              </Text>
             </View>
             <View style={styles.metricRow}>
-              <Text style={[styles.dataText, styles.iconText]}>🔌 Motor Current: {message1.current ?? "N/A"} A</Text>
+              <Text style={[styles.dataText, styles.iconText]}>
+                🔌 Motor Current: {message1.current ?? 'N/A'} A
+              </Text>
             </View>
 
             <Text style={styles.sectionTitle}>🎚 Control Metrics</Text>
             <View style={styles.metricRow}>
-              <Text style={[styles.dataText, styles.iconText]}>🌡 Controller Temp: {message2.controllerTemp ?? "N/A"} °C</Text>
+              <Text style={[styles.dataText, styles.iconText]}>
+                🌡 Controller Temp: {message2.controllerTemp ?? 'N/A'} °C
+              </Text>
             </View>
             <View style={styles.metricRow}>
-              <Text style={[styles.dataText, styles.iconText]}>🌡 Motor Temp: {message2.motorTemp ?? "N/A"} °C</Text>
+              <Text style={[styles.dataText, styles.iconText]}>
+                🌡 Motor Temp: {message2.motorTemp ?? 'N/A'} °C
+              </Text>
             </View>
             <View style={styles.metricRow}>
-              <Text style={[styles.dataText, styles.iconText]}>🎛 Throttle Signal: {message2.throttle ? ((message2.throttle / 255) * 5).toFixed(2) : "N/A"} V</Text>
+              <Text style={[styles.dataText, styles.iconText]}>
+                🎛 Throttle Signal:{' '}
+                {message2.throttle ? ((message2.throttle / 255) * 5).toFixed(2) : 'N/A'} V
+              </Text>
             </View>
 
             <Text style={styles.sectionTitle}>🔌 Switch Signals</Text>
@@ -163,11 +155,11 @@ const DashboardScreen = () => {
               '🛑 Brake': message2.switchSignals?.brake,
               '🔵 Hall C': message2.switchSignals?.hallC,
               '🟡 Hall B': message2.switchSignals?.hallB,
-              '🟢 Hall A': message2.switchSignals?.hallA
+              '🟢 Hall A': message2.switchSignals?.hallA,
             }).map(([label, value]) => (
               <View key={label} style={styles.switchRow}>
                 <Text style={[styles.dataText, styles.iconText]}>
-                  {label}: {value ? "ON" : "OFF"}
+                  {label}: {value ? 'ON' : 'OFF'}
                 </Text>
               </View>
             ))}
@@ -177,17 +169,7 @@ const DashboardScreen = () => {
         <Text style={styles.disconnected}>❌ Not Connected to Controller</Text>
       )}
 
-      <View style={styles.footer}>
-        <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate("Home")}>
-          <Text style={styles.footerText}>🏠 Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate("Dashboard")}>
-          <Text style={styles.footerText}>📊 Dashboard</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.footerButton} onPress={() => navigation.navigate("History")}>
-                  <Text style={styles.footerText}>📜 History</Text>
-                </TouchableOpacity>
-      </View>
+      <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </LinearGradient>
   );
 };
@@ -195,51 +177,67 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingBottom: 60,
-    paddingTop: 40,
+    paddingTop: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '90%',
+    marginBottom: 10,
+    paddingLeft: 0,
+    alignSelf: 'center',
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 20,
+    fontSize: 22,
     textAlign: 'center',
+    color: '#000',
+    fontWeight: 'bold',
+    marginBottom: 20,
+    marginRight: 18,
+    marginLeft: 20,
   },
   scrollView: {
     flex: 1,
     width: '100%',
   },
   scrollContent: {
-    paddingBottom: 80,
+    paddingBottom: 20,
     alignItems: 'center',
   },
   dataContainer: {
-    backgroundColor: "#1E1E1E",
+    backgroundColor: '#F8F9FA',
     padding: 20,
-    borderRadius: 12,
-    width: "90%",
+    borderRadius: 8,
+    width: '90%',
     marginVertical: 10,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
   speedometerContainer: {
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 30, // Increased to push content down
     height: 220,
   },
   speedometerLabel: {
-    color: "#fff",
+    color: '#000',
     fontSize: 16,
-    fontWeight: "bold",
-    marginTop: 10,
+    fontWeight: 'bold',
+    marginTop: 25, // Increased from 10 to 25 to match screenshot spacing
+  },
+  speedometerSubLabel: {
+    color: '#FF0000', // Red color to match "Pathetically weak" in screenshot
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 5, // Additional spacing below the label
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#4CAF50",
+    fontWeight: '600',
+    color: '#4CAF50',
     marginVertical: 12,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: "#333",
+    borderBottomColor: '#E0E0E0',
   },
   metricRow: {
     flexDirection: 'row',
@@ -253,7 +251,7 @@ const styles = StyleSheet.create({
   },
   dataText: {
     fontSize: 16,
-    color: "#fff",
+    color: '#000',
     marginVertical: 4,
     paddingHorizontal: 10,
   },
@@ -262,32 +260,25 @@ const styles = StyleSheet.create({
   },
   disconnected: {
     fontSize: 18,
-    color: "#FF4D4D",
+    color: '#FF4D4D',
     marginTop: 20,
     textAlign: 'center',
   },
-  footer: {
-    position: "absolute",
-    bottom: 0,
-    flexDirection: "row",
-    justifyContent: "space-around",
-    width: "100%",
-    paddingVertical: 10,
-    backgroundColor: "#1E1E1E",
-    zIndex: 2,
+  menuButton: {
+    padding: 0,
+    marginLeft: -7,
+    marginBottom: 18,
   },
-  footerButton: {
-    padding: 10,
-  },
-  footerText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+  menuIcon: {
+    fontSize: 30,
+    color: '#000',
+    paddingLeft: 0,
+    marginLeft: 0,
   },
   speedometerText: {
-    color: "#fff",
+    color: '#000',
     fontSize: 24,
-    fontWeight: "bold",
+    fontWeight: 'bold',
   },
 });
 
