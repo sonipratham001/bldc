@@ -14,8 +14,9 @@ import { getAuth } from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { RootStackParamList } from '../navigationTypes'; // Adjust path as needed
-import SideMenu from './SideMenu'; // Adjust path based on your project structure
+import { RootStackParamList } from '../navigationTypes';
+import SideMenu from './SideMenu';
+import Toast from 'react-native-toast-message';
 
 type PaymentScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, 'PaymentScreen'>;
 
@@ -26,7 +27,7 @@ const PaymentScreen = () => {
   const [subscriptions, setSubscriptions] = useState<RNIap.SubscriptionAndroid[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
-  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false); // State for side menu visibility
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const authInstance = getAuth(getApp());
 
   useEffect(() => {
@@ -63,7 +64,13 @@ const PaymentScreen = () => {
           `isSubscribed_${authInstance.currentUser?.uid}`,
           'true'
         );
-        Alert.alert('Success', 'Subscription purchased successfully!');
+        Toast.show({
+                type: "success",
+                text1: "Subscription purchased successfully!",
+                visibilityTime: 4000, // Duration in milliseconds
+                autoHide: true,
+                position: "bottom", // Can be 'top', 'bottom', or 'center'
+              });
         navigation.goBack();
         await RNIap.finishTransaction({ purchase, isConsumable: false });
       }
@@ -97,7 +104,7 @@ const PaymentScreen = () => {
   };
 
   return (
-    <LinearGradient colors={['#2C5364', '#203A43', '#0F2027']} style={styles.container}>
+    <LinearGradient colors={['#F5F5F5', '#E8ECEF', '#DEE2E6']} style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.menuButton}
@@ -147,7 +154,6 @@ const PaymentScreen = () => {
         </TouchableOpacity>
       </View>
 
-      {/* Use the reusable SideMenu component */}
       <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </LinearGradient>
   );
@@ -170,7 +176,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     textAlign: 'center',
-    color: '#fff',
+    color: '#000', // Changed to black
     fontWeight: 'bold',
     marginBottom: 20,
     marginRight: 18,
@@ -188,32 +194,29 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 15,
+    borderRadius: 8, // Reduced for consistency with other screens
     marginVertical: 10,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    borderWidth: 1, // Added subtle border
+    borderColor: '#E0E0E0', // Light gray border
   },
   subscribeButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4CAF50', // Kept green for action button
     width: '80%',
   },
   backButton: {
-    backgroundColor: '#FF4D4D',
+    backgroundColor: '#FF4D4D', // Kept red for cancel action
     width: '80%',
   },
   buttonText: {
-    color: '#fff',
+    color: '#000', // Changed to black for contrast
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'left',
     width: '100%',
   },
   buttonText1: {
-    color: '#fff',
+    color: '#000', // Changed to black for contrast
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',
@@ -221,13 +224,13 @@ const styles = StyleSheet.create({
   },
   subscribedText: {
     fontSize: 18,
-    color: '#fff',
+    color: '#000', // Changed to black
     textAlign: 'center',
     marginVertical: 20,
     fontWeight: '500',
   },
   noDevices: {
-    color: '#bbb',
+    color: '#666', // Darker gray for visibility
     fontSize: 18,
     textAlign: 'center',
     marginVertical: 20,
@@ -240,7 +243,7 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     fontSize: 30,
-    color: '#fff',
+    color: '#000', // Changed to black
     paddingLeft: 0,
     marginLeft: 0,
   },

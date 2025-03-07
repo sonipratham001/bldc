@@ -24,10 +24,11 @@ import {
 import { getAuth, signOut } from '@react-native-firebase/auth';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
-import { RootStackParamList } from '../navigationTypes'; // Adjust path as needed
+import { RootStackParamList } from '../navigationTypes';
 import LinearGradient from 'react-native-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import SideMenu from './SideMenu'; // Import the new SideMenu component (adjust path)
+import SideMenu from './SideMenu';
+import Toast from 'react-native-toast-message';
 
 interface EVData {
   id: string;
@@ -134,7 +135,13 @@ const HistoryScreen = () => {
 
   const exportData = async () => {
     if (evData.length === 0) {
-      Alert.alert('No Data', 'There is no data to export.');
+      Toast.show({
+                      type: "error",
+                      text1: "There is no data to export.",
+                      visibilityTime: 4000, // Duration in milliseconds
+                      autoHide: true,
+                      position: "top", // Can be 'top', 'bottom', or 'center'
+                    });
       return;
     }
 
@@ -167,8 +174,6 @@ const HistoryScreen = () => {
       Alert.alert('Error', 'Failed to share data. Please try again.');
     }
   };
-
-  // Removed handleLogout and handleSubscribe since they’re now in SideMenu
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -250,7 +255,7 @@ const HistoryScreen = () => {
   );
 
   return (
-    <LinearGradient colors={['#2C5364', '#203A43', '#0F2027']} style={styles.container}>
+    <LinearGradient colors={['#F5F5F5', '#E8ECEF', '#DEE2E6']} style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.menuButton} onPress={toggleMenu} activeOpacity={0.7}>
           <Text style={styles.menuIcon}>☰</Text>
@@ -291,20 +296,20 @@ const HistoryScreen = () => {
                 style={styles.dateButton}
                 onPress={() => setShowStartPicker(true)}
               >
-                <Text style={{ fontSize: 18, color: '#fff' }}>📅</Text>
+                <Text style={{ fontSize: 18, color: '#000' }}>📅</Text>
                 <Text style={styles.dateButtonText}>
                   {startDate ? startDate.toLocaleDateString() : 'Start Date'}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.dateButton} onPress={() => setShowEndPicker(true)}>
-                <Text style={{ fontSize: 18, color: '#fff' }}>📅</Text>
+                <Text style={{ fontSize: 18, color: '#000' }}>📅</Text>
                 <Text style={styles.dateButtonText}>
                   {endDate ? endDate.toLocaleDateString() : 'End Date'}
                 </Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity style={styles.exportButton} onPress={exportData}>
-              <Text style={{ fontSize: 20, color: '#fff', marginRight: 8 }}>⬇️</Text>
+              <Text style={{ fontSize: 20, color: '#000', marginRight: 8 }}>⬇️</Text>
               <Text style={styles.exportButtonText}>Export Data</Text>
             </TouchableOpacity>
           </>
@@ -344,13 +349,11 @@ const HistoryScreen = () => {
         />
       )}
 
-      {/* Replace inline menu with SideMenu component */}
       <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
     </LinearGradient>
   );
 };
 
-// Styles remain unchanged (removed sideMenu-related styles since they’re in SideMenu.tsx)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -372,7 +375,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     textAlign: 'center',
-    color: '#fff',
+    color: '#000', // Changed to black
     fontWeight: 'bold',
     marginBottom: 20,
     marginRight: 18,
@@ -387,15 +390,15 @@ const styles = StyleSheet.create({
   filterButton: {
     flex: 1,
     padding: 12,
-    backgroundColor: '#2c3e50',
+    backgroundColor: '#D3D3D3', // Light gray instead of dark
     borderRadius: 8,
     alignItems: 'center',
   },
   activeFilter: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4CAF50', // Kept green for active state
   },
   filterButtonText: {
-    color: '#fff',
+    color: '#000', // Changed to black
     fontWeight: '500',
   },
   dateContainer: {
@@ -410,22 +413,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     padding: 12,
-    backgroundColor: '#2c3e50',
+    backgroundColor: '#D3D3D3', // Light gray instead of dark
     borderRadius: 8,
   },
   dateButtonText: {
-    color: '#fff',
+    color: '#000', // Changed to black
     fontWeight: '500',
   },
   card: {
-    backgroundColor: '#1E1E1E',
-    borderRadius: 12,
+    backgroundColor: '#F8F9FA', // Matching HomeScreen trialMessage and DashboardScreen dataContainer
+    borderRadius: 8, // Reduced for simplicity
     padding: 16,
     marginBottom: 12,
-    elevation: 3,
+    borderWidth: 1, // Subtle border like HomeScreen
+    borderColor: '#E0E0E0',
   },
   cardTime: {
-    color: '#888',
+    color: '#666', // Darker gray for visibility
     fontSize: 12,
     marginBottom: 12,
   },
@@ -445,11 +449,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   metricLabel: {
-    color: '#888',
+    color: '#888', // Kept gray for secondary text
     fontSize: 12,
   },
   metricValue: {
-    color: '#fff',
+    color: '#000', // Changed to black
     fontSize: 16,
     fontWeight: '500',
   },
@@ -460,14 +464,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
     paddingTop: 8,
     borderTopWidth: 1,
-    borderTopColor: '#2c3e50',
+    borderTopColor: '#E0E0E0', // Light gray border
   },
   boostText: {
-    color: '#666',
+    color: '#666', // Darker gray for visibility
     fontWeight: '500',
   },
   boostActive: {
-    color: '#4CAF50',
+    color: '#4CAF50', // Kept green for active state
   },
   emptyState: {
     alignItems: 'center',
@@ -475,12 +479,12 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyText: {
-    color: '#fff',
+    color: '#000', // Changed to black
     fontSize: 18,
     fontWeight: '500',
   },
   emptySubText: {
-    color: '#888',
+    color: '#666', // Darker gray for visibility
     fontSize: 14,
   },
   exportButton: {
@@ -489,12 +493,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#4CAF50', // Kept green for action button
     borderRadius: 8,
     marginVertical: 20,
   },
   exportButtonText: {
-    color: '#fff',
+    color: '#000', // Changed to black for contrast
     fontWeight: 'bold',
     fontSize: 16,
   },
@@ -505,7 +509,7 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     fontSize: 30,
-    color: '#fff',
+    color: '#000', // Changed to black
     paddingLeft: 0,
     marginLeft: 0,
   },

@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import { View, ActivityIndicator } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth"; // Use modular auth
-import { getApp } from "@react-native-firebase/app"; // Import getApp for modular SDK
+import { getAuth, onAuthStateChanged } from "@react-native-firebase/auth";
+import { getApp } from "@react-native-firebase/app";
 import HomeScreen from "./screens/HomeScreen";
 import DashboardScreen from "./screens/Dashboard";
 import LoginScreen from "./screens/LoginScreen";
@@ -12,18 +12,21 @@ import Subscription from "./screens/SubscriptionScreen";
 import PaymentScreen from "./screens/PaymentScreen";
 import { BluetoothProvider } from "./services/BluetoothServices";
 import HistoryScreen from './screens/HistoryScreen';
+import UserProfile from "./screens/UserProfile";
+import ForgotPasswordScreen from "./screens/ForgotPasswordScreen";
+import Toast from 'react-native-toast-message'; // Corrected import
 
-// Import the User type from FirebaseAuthTypes (part of @react-native-firebase/auth types)
+// Import the User type from FirebaseAuthTypes
 import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 
 const Stack = createNativeStackNavigator();
 
 const App = () => {
   const [loading, setLoading] = useState<boolean>(true);
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);// Use correct Firebase User type
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
 
   useEffect(() => {
-    const authInstance = getAuth(getApp()); // Get modular auth instance with getApp()
+    const authInstance = getAuth(getApp());
     const unsubscribe = onAuthStateChanged(authInstance, (currentUser: FirebaseAuthTypes.User | null) => {
       setUser(currentUser);
       setLoading(false);
@@ -41,6 +44,7 @@ const App = () => {
   }
 
   return (
+    // Removed ToastProvider wrapper
     <BluetoothProvider>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -51,15 +55,19 @@ const App = () => {
               <Stack.Screen name="Subscription" component={Subscription} />
               <Stack.Screen name="PaymentScreen" component={PaymentScreen} />
               <Stack.Screen name="History" component={HistoryScreen} />
+              <Stack.Screen name="UserProfile" component={UserProfile} />
             </>
           ) : (
             <>
               <Stack.Screen name="Login" component={LoginScreen} />
               <Stack.Screen name="Signup" component={SignupScreen} />
+              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             </>
           )}
         </Stack.Navigator>
       </NavigationContainer>
+      {/* Added Toast component at the root level */}
+      <Toast />
     </BluetoothProvider>
   );
 };

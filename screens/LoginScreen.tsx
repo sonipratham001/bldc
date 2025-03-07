@@ -1,14 +1,21 @@
 import React, { useState } from "react";
-import { 
-  View, Text, TextInput, TouchableOpacity, 
-  StyleSheet, Image, Alert, ActivityIndicator 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import LinearGradient from "react-native-linear-gradient";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
-import { RootStackParamList } from "../navigationTypes"; 
-import { getAuth, signInWithEmailAndPassword } from "@react-native-firebase/auth"; // Use modular auth imports
-import { getApp } from "@react-native-firebase/app"; // Import getApp for modular SDK
+import { RootStackParamList } from "../navigationTypes";
+import { getAuth, signInWithEmailAndPassword } from "@react-native-firebase/auth";
+import { getApp } from "@react-native-firebase/app";
+import Toast from "react-native-toast-message"; // Import Toast
 
 const LoginScreen = () => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, "Login">>();
@@ -16,7 +23,7 @@ const LoginScreen = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const authInstance = getAuth(getApp()); // Get modular auth instance with getApp()
+  const authInstance = getAuth(getApp());
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -26,17 +33,32 @@ const LoginScreen = () => {
 
     setLoading(true);
     try {
-      await signInWithEmailAndPassword(authInstance, email, password); // Use authInstance
-      Alert.alert("Success", "Login successful!");
-      // Do not manually navigate here—rely on App.tsx's onAuthStateChanged to handle navigation
+      await signInWithEmailAndPassword(authInstance, email, password);
+      // Replace Alert with Toast
+      Toast.show({
+        type: "success",
+        text1: "Login Successful",
+        text2: "Welcome back! You are now logged in.",
+        visibilityTime: 4000, // Duration in milliseconds
+        autoHide: true,
+        position: "bottom", // Can be 'top', 'bottom', or 'center'
+      });
+      // Navigation handled by App.tsx's onAuthStateChanged
     } catch (error: any) {
-      Alert.alert("Login Failed", error.message);
+      Toast.show({
+        type: "error",
+        text1: "Login Failed",
+        text2: error.message,
+        visibilityTime: 4000, // Duration in milliseconds
+        autoHide: true,
+        position: "bottom", // Can be 'top', 'bottom', or 'center'
+      });
     }
     setLoading(false);
   };
 
   return (
-    <LinearGradient colors={["#2C5364", "#203A43", "#0F2027"]} style={styles.container}>
+    <LinearGradient colors={["#F5F5F5", "#E8ECEF", "#DEE2E6"]} style={styles.container}>
       <View style={styles.logoContainer}>
         <Image source={require("../assets/intuteLogo.png")} style={styles.logo} />
       </View>
@@ -44,7 +66,7 @@ const LoginScreen = () => {
       <TextInput
         style={styles.input}
         placeholder="Email"
-        placeholderTextColor="#aaa"
+        placeholderTextColor="#666"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -53,17 +75,22 @@ const LoginScreen = () => {
       <TextInput
         style={styles.input}
         placeholder="Password"
-        placeholderTextColor="#aaa"
+        placeholderTextColor="#666"
         value={password}
         onChangeText={setPassword}
         secureTextEntry
       />
+      <TouchableOpacity onPress={() => navigation.navigate("ForgotPassword")} disabled={loading}>
+        <Text style={styles.linkText}>Forgot Password?</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
         {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Login</Text>}
       </TouchableOpacity>
       <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
         <Text style={styles.linkText}>Don't have an account? Sign up</Text>
       </TouchableOpacity>
+      {/* Add Toast component to render the toast */}
+      <Toast />
     </LinearGradient>
   );
 };
@@ -77,30 +104,32 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 20,
     width: "100%",
   },
   logo: {
-    width: 350,
-    height: 200,
+    width: 240,
+    height: 140,
     resizeMode: "contain",
-    marginLeft: 80,
+    marginLeft: 70,
   },
   title: {
     fontSize: 30,
-    color: "#fff",
+    color: "#000",
     fontWeight: "bold",
     marginBottom: 20,
   },
   input: {
     width: "100%",
     height: 50,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF",
     borderRadius: 8,
     paddingHorizontal: 15,
     fontSize: 16,
     marginBottom: 15,
-    color: "black",
+    color: "#000",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
   },
   button: {
     width: "100%",
@@ -109,6 +138,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
   },
   buttonText: {
     color: "#fff",
@@ -116,8 +147,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   linkText: {
-    color: "#fff",
-    marginTop: 15,
+    color: "#666",
+    marginTop: 5,
+    marginLeft: 10,
     fontSize: 16,
     textDecorationLine: "underline",
   },

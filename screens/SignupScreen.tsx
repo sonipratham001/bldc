@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import { RootStackParamList } from "../navigationTypes";
 import auth from "@react-native-firebase/auth";
 import Icon from "react-native-vector-icons/Ionicons";
+import Toast from "react-native-toast-message";
 
 const SignupScreen = () => {
   const navigation = useNavigation<
@@ -37,7 +38,13 @@ const SignupScreen = () => {
         email,
         password
       );
-      Alert.alert("Success", "Account created successfully!");
+      Toast.show({
+              type: "success",
+              text1: "Account Created Successfully",
+              visibilityTime: 4000, // Duration in milliseconds
+              autoHide: true,
+              position: "bottom", // Can be 'top', 'bottom', or 'center'
+            });
       navigation.navigate("Home");
     } catch (error: any) {
       Alert.alert("Signup Failed", error.message);
@@ -46,7 +53,7 @@ const SignupScreen = () => {
   };
 
   return (
-    <LinearGradient colors={["#2C5364", "#203A43", "#0F2027"]} style={styles.container}>
+    <LinearGradient colors={["#F5F5F5", "#E8ECEF", "#DEE2E6"]} style={styles.container}>
       <View style={styles.logoContainer}>
         <Image source={require("../assets/intuteLogo.png")} style={styles.logo} />
       </View>
@@ -54,7 +61,7 @@ const SignupScreen = () => {
       <TextInput
         style={styles.input}
         placeholder="Email"
-        placeholderTextColor="#aaa"
+        placeholderTextColor="#666"
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -64,7 +71,7 @@ const SignupScreen = () => {
         <TextInput
           style={styles.passwordInput}
           placeholder="Password"
-          placeholderTextColor="#aaa"
+          placeholderTextColor="#666"
           value={password}
           onChangeText={setPassword}
           secureTextEntry={secureTextEntry}
@@ -73,7 +80,7 @@ const SignupScreen = () => {
           style={styles.eyeIcon}
           onPress={() => setSecureTextEntry(!secureTextEntry)}
         >
-          <Icon name={secureTextEntry ? "eye-off" : "eye"} size={24} color="#aaa" />
+          <Icon name={secureTextEntry ? "eye-off" : "eye"} size={24} color="#666" />
         </TouchableOpacity>
       </View>
       <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
@@ -95,44 +102,50 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: "center",
-    marginBottom: 30,
+    marginBottom: 20,
     width: "100%",
   },
   logo: {
-    width: 350,
-    height: 200,
+    width: 240,
+    height: 140,
     resizeMode: "contain",
-    marginLeft: 80,
+    marginLeft: 70,
   },
   title: {
     fontSize: 30,
-    color: "#fff",
+    color: "#000",
     fontWeight: "bold",
     marginBottom: 20,
   },
   input: {
     width: "100%",
     height: 50,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF",
     borderRadius: 8,
     paddingHorizontal: 15,
     fontSize: 16,
     marginBottom: 15,
+    color: "#000",
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
   },
   passwordContainer: {
     width: "100%",
     height: 50,
-    backgroundColor: "#fff",
+    backgroundColor: "#FFF",
     borderRadius: 8,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 15,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
   },
   passwordInput: {
     flex: 1,
     height: "100%",
     paddingHorizontal: 15,
     fontSize: 16,
+    color: "#000",
   },
   eyeIcon: {
     paddingHorizontal: 10,
@@ -144,6 +157,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#E0E0E0",
   },
   buttonText: {
     color: "#fff",
@@ -151,7 +166,7 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   linkText: {
-    color: "#fff",
+    color: "#666",
     marginTop: 15,
     fontSize: 16,
     textDecorationLine: "underline",

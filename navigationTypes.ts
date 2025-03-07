@@ -9,6 +9,8 @@ export type RootStackParamList = {
   Subscription: undefined;
   PaymentScreen: undefined;
   History: undefined;
+  UserProfile: undefined;
+  ForgotPassword: undefined;
 };
 
 export type LoginScreenProps = NativeStackScreenProps<RootStackParamList, "Login">;
@@ -19,4 +21,6 @@ export type ControlScreenProps = NativeStackScreenProps<RootStackParamList, "Con
 export type SubscriptionScreenProps = NativeStackScreenProps<RootStackParamList, "Subscription">;
 export type PaymentScreenProps = NativeStackScreenProps<RootStackParamList, "PaymentScreen">;
 export type HistoryScreenProps = NativeStackScreenProps<RootStackParamList, "History">;
+export type UserProfileProps = NativeStackScreenProps<RootStackParamList, "UserProfile">;
+export type ForgotPasswordProps = NativeStackScreenProps<RootStackParamList, "ForgotPassword">;
 

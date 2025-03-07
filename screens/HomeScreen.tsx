@@ -20,6 +20,7 @@ import { getApp } from '@react-native-firebase/app';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SideMenu from './SideMenu';
 import LinearGradient from 'react-native-linear-gradient';
+import Toast from 'react-native-toast-message';
 
 const manager = new BleManager();
 const authInstance = getAuth(getApp());
@@ -81,7 +82,13 @@ const HomeScreen = () => {
     manager.startDeviceScan(null, null, (error, device) => {
       if (error) {
         console.error('Scan Error:', error);
-        Alert.alert('Error', 'Failed to scan for devices. Turn on your device Bluetooth');
+       Toast.show({
+               type: "error",
+               text1: "Failed to scan for devices. Turn on your device Bluetooth",
+               visibilityTime: 4000, // Duration in milliseconds
+               autoHide: true,
+               position: "top", // Can be 'top', 'bottom', or 'center'
+             });
         setIsScanning(false);
         return;
       }
@@ -140,7 +147,7 @@ const HomeScreen = () => {
           <Text style={[styles.menuIcon, { color: '#000' }]}>☰</Text>
         </TouchableOpacity>
         <Text style={[styles.title, { color: '#000' }]}>
-          {connectedDevice ? '✅ Connected to ESP32' : '❌ App is Disconnected'}
+          {connectedDevice ? 'Connected to ESP32' : 'App is Disconnected'}
         </Text>
       </View>
 
@@ -185,6 +192,16 @@ const HomeScreen = () => {
               !isScanning ? <Text style={[styles.noDevices, { color: '#666' }]}>No devices found</Text> : null
             }
           />
+        )}
+
+        {connectedDevice && (
+          <TouchableOpacity
+            style={[styles.button, styles.goToDashboardButton]}
+            onPress={() => navigation.navigate('Dashboard')}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.buttonText1}>Go to Dashboard</Text>
+          </TouchableOpacity>
         )}
 
         {connectedDevice && (
@@ -257,7 +274,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20,
     marginRight: 18,
-    marginLeft: 40,
+    marginLeft: 45,
     textShadowColor: '#000',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
@@ -282,6 +299,10 @@ const styles = StyleSheet.create({
   },
   scanButton: {
     backgroundColor: '#4CAF50',
+    width: '80%',
+  },
+  goToDashboardButton: {
+    backgroundColor: '#4CAF50', // Same green as scan button
     width: '80%',
   },
   disconnectButton: {

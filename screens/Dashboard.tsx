@@ -97,9 +97,9 @@ const DashboardScreen = () => {
                 showText
                 textStyle={styles.speedometerText}
                 needleColor="#1E90FF"
-                backgroundColor="#FFFFFF"
+                backgroundColor="#FFFFFF" // Changed to white for light theme
                 arcWidth={15}
-                arcBackgroundColor="#E0E0E0"
+                arcBackgroundColor="#E0E0E0" // Light gray for contrast
                 customArcs={[
                   { start: 0, end: 1250, color: '#00FF00' },
                   { start: 1250, end: 2500, color: '#FFFF00' },
@@ -107,8 +107,7 @@ const DashboardScreen = () => {
                   { start: 3750, end: 5000, color: '#FF0000' },
                 ]}
               />
-              <Text style={styles.speedometerLabel}>Speed (RPM)</Text>
-              <Text style={styles.speedometerSubLabel}>Pathetically weak</Text> {/* Added sub-label */}
+               {/* <Text style={styles.speedometerLabel}>Speed (RPM)</Text> */}
             </View>
 
             <Text style={styles.sectionTitle}>📊 Motor Metrics</Text>
@@ -190,7 +189,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     textAlign: 'center',
-    color: '#000',
+    color: '#000', // Changed to black
     fontWeight: 'bold',
     marginBottom: 20,
     marginRight: 18,
@@ -205,39 +204,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dataContainer: {
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F8F9FA', // Matching HomeScreen trialMessage
     padding: 20,
-    borderRadius: 8,
+    borderRadius: 8, // Reduced for simplicity
     width: '90%',
     marginVertical: 10,
-    borderWidth: 1,
+    borderWidth: 1, // Subtle border like HomeScreen
     borderColor: '#E0E0E0',
   },
   speedometerContainer: {
     alignItems: 'center',
-    marginBottom: 30, // Increased to push content down
-    height: 220,
+    marginBottom: 18,
+    height: 200,  // Increased from 220 to accommodate extra spacing
   },
   speedometerLabel: {
     color: '#000',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
-    marginTop: 25, // Increased from 10 to 25 to match screenshot spacing
-  },
-  speedometerSubLabel: {
-    color: '#FF0000', // Red color to match "Pathetically weak" in screenshot
-    fontSize: 14,
-    fontWeight: '500',
-    marginTop: 5, // Additional spacing below the label
+    marginTop: 22,  // Increased from 10 to push label down
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#4CAF50',
+    color: '#4CAF50', // Kept green for distinction
     marginVertical: 12,
     paddingBottom: 6,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
+    borderBottomColor: '#E0E0E0', // Lighter border
   },
   metricRow: {
     flexDirection: 'row',
@@ -251,7 +244,7 @@ const styles = StyleSheet.create({
   },
   dataText: {
     fontSize: 16,
-    color: '#000',
+    color: '#000', // Changed to black
     marginVertical: 4,
     paddingHorizontal: 10,
   },
@@ -271,12 +264,12 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     fontSize: 30,
-    color: '#000',
+    color: '#000', // Changed to black
     paddingLeft: 0,
     marginLeft: 0,
   },
   speedometerText: {
-    color: '#000',
+    color: '#000', // Changed to black
     fontSize: 24,
     fontWeight: 'bold',
   },

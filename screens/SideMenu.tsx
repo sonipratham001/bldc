@@ -30,6 +30,17 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
     <View style={styles.container}>
       {/* Side Menu Content */}
       <View style={styles.sideMenu}>
+        {/* User Profile Icon */}
+        <TouchableOpacity
+          style={styles.userIconContainer}
+          onPress={() => {
+            navigation.navigate('UserProfile');
+            onClose();
+          }}
+        >
+          <Text style={styles.userIcon}>👤</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.menuItem}
           onPress={() => {
@@ -69,9 +80,6 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
         <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.menuItem, styles.closeButton]} onPress={onClose}>
-          <Text style={styles.buttonText}>Close</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Backdrop that closes the menu when clicked */}
@@ -97,27 +105,35 @@ const styles = StyleSheet.create({
   },
   sideMenu: {
     width: 250,
-    backgroundColor: 'rgba(15, 32, 39, 0.9)',
+    backgroundColor: 'rgba(30, 30, 30, 0.9)',
     paddingTop: 50,
     paddingHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 2, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(224, 224, 224, 0.2)',
+    borderRightWidth: 0,
+  },
+  userIconContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  userIcon: {
+    fontSize: 40,
+    color: '#fff',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    borderRadius: 50,
+    width: 60,
+    height: 60,
+    textAlign: 'center',
+    lineHeight: 60,
   },
   menuItem: {
     width: '100%',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+    borderBottomColor: 'rgba(224, 224, 224, 0.2)',
     alignItems: 'flex-start',
     justifyContent: 'center',
     paddingLeft: 10,
-  },
-  closeButton: {
-    marginTop: 20,
-    paddingVertical: 15,
   },
   buttonText: {
     color: '#fff',
