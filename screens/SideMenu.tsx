@@ -8,9 +8,10 @@ import { getAuth, signOut } from '@react-native-firebase/auth';
 interface SideMenuProps {
   isOpen: boolean;
   onClose: () => void;
+  isSubscribed?: boolean | null; // Add isSubscribed prop
 }
 
-const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
+const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose, isSubscribed }) => {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const auth = getAuth();
 
@@ -34,11 +35,15 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
         <TouchableOpacity
           style={styles.userIconContainer}
           onPress={() => {
+            if (isSubscribed === false) {
+              // Prevent navigation to UserProfile if not subscribed
+              return;
+            }
             navigation.navigate('UserProfile');
             onClose();
           }}
         >
-          <Text style={styles.userIcon}>👤</Text>
+          <Text style={[styles.userIcon, !isSubscribed && styles.disabledIcon]}>👤</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -50,24 +55,35 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
         >
           <Text style={styles.buttonText}>Home</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.menuItem}
           onPress={() => {
+            if (isSubscribed === false) {
+              return;
+            }
             navigation.navigate('Dashboard');
             onClose();
           }}
+          disabled={isSubscribed === false}
         >
-          <Text style={styles.buttonText}>Dashboard</Text>
+          <Text style={[styles.buttonText, !isSubscribed && styles.disabledText]}>Dashboard</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.menuItem}
           onPress={() => {
+            if (isSubscribed === false) {
+              return;
+            }
             navigation.navigate('History');
             onClose();
           }}
+          disabled={isSubscribed === false}
         >
-          <Text style={styles.buttonText}>History</Text>
+          <Text style={[styles.buttonText, !isSubscribed && styles.disabledText]}>History</Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           style={styles.menuItem}
           onPress={() => {
@@ -77,6 +93,7 @@ const SideMenu: React.FC<SideMenuProps> = ({ isOpen, onClose }) => {
         >
           <Text style={styles.buttonText}>Subscribe Now</Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.menuItem} onPress={handleLogout}>
           <Text style={styles.buttonText}>Logout</Text>
         </TouchableOpacity>
@@ -126,6 +143,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 60,
   },
+  disabledIcon: {
+    color: '#999',
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
   menuItem: {
     width: '100%',
     paddingVertical: 15,
@@ -141,6 +162,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'left',
     width: '100%',
+  },
+  disabledText: {
+    color: '#999',
   },
 });
 

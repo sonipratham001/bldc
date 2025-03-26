@@ -1,3 +1,4 @@
+// HomeScreen.tsx (only showing the relevant changes)
 import React, { useContext, useEffect, useState } from 'react';
 import {
   View,
@@ -6,8 +7,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   FlatList,
-  Alert,
   ActivityIndicator,
+  BackHandler,
+  Modal,
 } from 'react-native';
 import { BluetoothContext } from '../services/BluetoothServices';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -17,7 +19,7 @@ import { BleManager, Device } from 'react-native-ble-plx';
 import requestBluetoothPermissions from '../services/requestBluetoothPermissions';
 import { getAuth } from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getFirestore, doc, getDoc } from '@react-native-firebase/firestore';
 import SideMenu from './SideMenu';
 import LinearGradient from 'react-native-linear-gradient';
 import Toast from 'react-native-toast-message';
@@ -32,40 +34,56 @@ const HomeScreen = () => {
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [trialDaysLeft, setTrialDaysLeft] = useState<number | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [isSubscribed, setIsSubscribed] = useState<boolean | null>(null);
+  const [showTrialModal, setShowTrialModal] = useState<boolean>(false);
 
   useEffect(() => {
     requestBluetoothPermissions();
 
-    const fetchOrSetTrialData = async () => {
+    const fetchTrialData = async () => {
       const user = authInstance.currentUser;
       if (user) {
-        const trialStartStr = await AsyncStorage.getItem(`freeTrialStart_${user.uid}`);
-        const subscriptionStr = await AsyncStorage.getItem(`isSubscribed_${user.uid}`);
-
-        if (!trialStartStr) {
-          const trialStart = new Date().toISOString();
-          await AsyncStorage.setItem(`freeTrialStart_${user.uid}`, trialStart);
-          setTrialDaysLeft(15);
-        } else {
-          const trialStart = new Date(trialStartStr);
+        const creationTimeStr = user.metadata.creationTime;
+        if (creationTimeStr) {
+          const trialStart = new Date(creationTimeStr);
           const now = new Date();
           const diffMs = now.getTime() - trialStart.getTime();
           const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-          const daysLeft = 15 - diffDays;
+          const trialPeriod = 15;
+          const daysLeft = trialPeriod - diffDays;
 
           if (daysLeft > 0) {
             setTrialDaysLeft(daysLeft);
+            setIsSubscribed(true);
+            Toast.show({
+              type: 'success',
+              text1: 'Free Trial Active',
+              text2: `Your trial expires in ${daysLeft} days.`,
+              visibilityTime: 4000,
+              autoHide: true,
+              position: 'bottom',
+            });
           } else {
             setTrialDaysLeft(0);
-            if (!subscriptionStr || subscriptionStr !== 'true') {
-              handleTrialExpired();
+            const db = getFirestore(getApp());
+            const userDocRef = doc(db, 'users', user.uid);
+            const userDoc = await getDoc(userDocRef);
+            const subscribed = userDoc.exists && userDoc.data()?.isSubscribed;
+            setIsSubscribed(subscribed);
+            if (!subscribed) {
+              setShowTrialModal(true);
             }
           }
+        } else {
+          console.error('User creation time is undefined');
+          setTrialDaysLeft(0);
+          setIsSubscribed(false);
+          setShowTrialModal(true);
         }
       }
     };
 
-    fetchOrSetTrialData();
+    fetchTrialData();
 
     return () => {
       manager.stopDeviceScan();
@@ -82,13 +100,13 @@ const HomeScreen = () => {
     manager.startDeviceScan(null, null, (error, device) => {
       if (error) {
         console.error('Scan Error:', error);
-       Toast.show({
-               type: "error",
-               text1: "Failed to scan for devices. Turn on your device Bluetooth",
-               visibilityTime: 4000, // Duration in milliseconds
-               autoHide: true,
-               position: "top", // Can be 'top', 'bottom', or 'center'
-             });
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to scan for devices. Turn on your device Bluetooth',
+          visibilityTime: 4000,
+          autoHide: true,
+          position: 'top',
+        });
         setIsScanning(false);
         return;
       }
@@ -114,28 +132,23 @@ const HomeScreen = () => {
     setIsScanning(false);
   };
 
-  const handleTrialExpired = () => {
-    Alert.alert(
-      'Trial Expired',
-      'Your 15-day free trial has expired. Please subscribe to continue using the app.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Subscribe',
-          onPress: () => navigation.navigate('Subscription'),
-          style: 'default',
-        },
-      ]
-    );
-  };
-
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
   };
 
+  const handleSubscribe = () => {
+    setShowTrialModal(false);
+    navigation.navigate('PaymentScreen');
+  };
+
+  const handleCancel = () => {
+    setShowTrialModal(false);
+    BackHandler.exitApp();
+  };
+
   return (
     <LinearGradient
-      colors={['#F5F5F5', '#E8ECEF', '#DEE2E6']} // Light off-white to soft gray gradient
+      colors={['#F5F5F5', '#E8ECEF', '#DEE2E6']}
       style={styles.container}
     >
       <View style={styles.header}>
@@ -160,7 +173,7 @@ const HomeScreen = () => {
           <TouchableOpacity
             style={[styles.button, styles.scanButton]}
             onPress={startScan}
-            disabled={isScanning}
+            disabled={isScanning || !isSubscribed}
             activeOpacity={0.7}
           >
             <Text style={styles.buttonText1}>Scan for Bluetooth Devices</Text>
@@ -180,6 +193,7 @@ const HomeScreen = () => {
                 style={styles.deviceItem}
                 onPress={() => handleConnect(item)}
                 activeOpacity={0.8}
+                disabled={!isSubscribed}
               >
                 <View style={styles.deviceDetails}>
                   <Text style={styles.deviceName}>{item.name || 'Unknown Device'}</Text>
@@ -189,7 +203,9 @@ const HomeScreen = () => {
             )}
             contentContainerStyle={styles.list}
             ListEmptyComponent={
-              !isScanning ? <Text style={[styles.noDevices, { color: '#666' }]}>No devices found</Text> : null
+              !isScanning ? (
+                <Text style={[styles.noDevices, { color: '#666' }]}>No devices found</Text>
+              ) : null
             }
           />
         )}
@@ -199,6 +215,7 @@ const HomeScreen = () => {
             style={[styles.button, styles.goToDashboardButton]}
             onPress={() => navigation.navigate('Dashboard')}
             activeOpacity={0.7}
+            disabled={!isSubscribed}
           >
             <Text style={styles.buttonText1}>Go to Dashboard</Text>
           </TouchableOpacity>
@@ -209,14 +226,16 @@ const HomeScreen = () => {
             style={[styles.button, styles.disconnectButton]}
             onPress={disconnectDevice}
             activeOpacity={0.7}
+            disabled={!isSubscribed}
           >
             <Text style={styles.buttonText1}>Disconnect</Text>
           </TouchableOpacity>
         )}
 
         <View style={styles.trialContent}>
-          {trialDaysLeft !== null && (
+          {trialDaysLeft !== null && trialDaysLeft > 0 && (
             <View style={styles.trialMessage}>
+              <Text style={styles.trialIcon}>⏳</Text>
               <Text style={[styles.trialText, { color: '#000' }]}>
                 Your free trial expires in {trialDaysLeft} days
               </Text>
@@ -225,7 +244,43 @@ const HomeScreen = () => {
         </View>
       </View>
 
-      <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
+      {/* Custom Trial Expired Modal */}
+      <Modal
+        visible={showTrialModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlay}>
+          <LinearGradient
+            colors={['#F5F5F5', '#E8ECEF', '#DEE2E6']}
+            style={styles.modalContainer}
+          >
+            <Text style={styles.modalTitle}>Trial Expired</Text>
+            <Text style={styles.modalMessage}>
+              Your 15-day free trial has ended. Subscribe now to continue enjoying the app!
+            </Text>
+            <View style={styles.modalButtonContainer}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={handleCancel}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.subscribeButton]}
+                onPress={handleSubscribe}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalButtonText}>Subscribe</Text>
+              </TouchableOpacity>
+            </View>
+          </LinearGradient>
+        </View>
+      </Modal>
+
+      <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} isSubscribed={isSubscribed} />
     </LinearGradient>
   );
 };
@@ -302,7 +357,7 @@ const styles = StyleSheet.create({
     width: '80%',
   },
   goToDashboardButton: {
-    backgroundColor: '#4CAF50', // Same green as scan button
+    backgroundColor: '#4CAF50',
     width: '80%',
   },
   disconnectButton: {
@@ -367,17 +422,91 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   trialMessage: {
-    backgroundColor: '#F8F9FA', // Light off-white/gray matching the gradient
-    padding: 8, // Reduced padding for simplicity
-    borderRadius: 8, // Slightly smaller radius
-    borderWidth: 1, // Added subtle border
-    borderColor: '#E0E0E0', // Light gray border
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9', // Light green background to indicate active trial
+    padding: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#C8E6C9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  trialIcon: {
+    fontSize: 20,
+    marginRight: 8,
+    color: '#4CAF50',
   },
   trialText: {
     fontSize: 17,
     color: '#000',
     textAlign: 'center',
     fontWeight: '500',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContainer: {
+    width: '80%',
+    padding: 20,
+    borderRadius: 15,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#000',
+    marginBottom: 15,
+    textShadowColor: '#000',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  modalMessage: {
+    fontSize: 16,
+    color: '#333',
+    textAlign: 'center',
+    marginBottom: 20,
+    fontWeight: '500',
+  },
+  modalButtonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginHorizontal: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  cancelButton: {
+    backgroundColor: '#FF4D4D',
+  },
+  subscribeButton: {
+    backgroundColor: '#4CAF50',
+  },
+  modalButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

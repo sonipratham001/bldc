@@ -12,6 +12,7 @@ import * as RNIap from 'react-native-iap';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getAuth } from '@react-native-firebase/auth';
 import { getApp } from '@react-native-firebase/app';
+import { getFirestore, doc, setDoc, serverTimestamp } from '@react-native-firebase/firestore';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { RootStackParamList } from '../navigationTypes';
@@ -28,7 +29,33 @@ const PaymentScreen = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [isSubscribed, setIsSubscribed] = useState<boolean>(false);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [purchasing, setPurchasing] = useState<string | null>(null); // Track which SKU is being purchased
   const authInstance = getAuth(getApp());
+
+  const saveSubscriptionStatus = async () => {
+    const user = authInstance.currentUser;
+    if (user) {
+      const db = getFirestore(getApp());
+      try {
+        await setDoc(
+          doc(db, 'users', user.uid),
+          { isSubscribed: true, updatedAt: serverTimestamp() },
+          { merge: true }
+        );
+        console.log('Subscription status saved successfully');
+      } catch (error) {
+        console.error('Error saving subscription status:', error);
+        Toast.show({
+          type: 'error',
+          text1: 'Error',
+          text2: 'Failed to save subscription status. Please try again.',
+          visibilityTime: 4000,
+          autoHide: true,
+          position: 'bottom',
+        });
+      }
+    }
+  };
 
   useEffect(() => {
     const initializeIap = async () => {
@@ -49,6 +76,7 @@ const PaymentScreen = () => {
             `isSubscribed_${authInstance.currentUser?.uid}`,
             'true'
           );
+          await saveSubscriptionStatus(); // Save to Firestore if already subscribed
         }
       } catch (error: any) {
         Alert.alert('Error', error.message || 'Failed to load subscriptions.');
@@ -64,21 +92,30 @@ const PaymentScreen = () => {
           `isSubscribed_${authInstance.currentUser?.uid}`,
           'true'
         );
+        await saveSubscriptionStatus(); // Save to Firestore
         Toast.show({
-                type: "success",
-                text1: "Subscription purchased successfully!",
-                visibilityTime: 4000, // Duration in milliseconds
-                autoHide: true,
-                position: "bottom", // Can be 'top', 'bottom', or 'center'
-              });
-        navigation.goBack();
+          type: 'success',
+          text1: 'Success',
+          text2: 'Subscription purchased successfully!',
+          visibilityTime: 4000,
+          autoHide: true,
+          position: 'bottom',
+        });
+        setPurchasing(null);
         await RNIap.finishTransaction({ purchase, isConsumable: false });
+        navigation.navigate('Home'); // Navigate back to Home after successful subscription
       }
+    });
+
+    const purchaseErrorListener = RNIap.purchaseErrorListener((error) => {
+      setPurchasing(null);
+      Alert.alert('Purchase Failed', error.message || 'An error occurred during the purchase.');
     });
 
     initializeIap();
     return () => {
       purchaseListener.remove();
+      purchaseErrorListener.remove();
       RNIap.endConnection();
     };
   }, [navigation]);
@@ -90,12 +127,11 @@ const PaymentScreen = () => {
     }
 
     try {
-      setLoading(true);
+      setPurchasing(sku); // Set the SKU being purchased
       await RNIap.requestSubscription({ sku });
     } catch (error: any) {
+      setPurchasing(null);
       Alert.alert('Purchase Failed', error.message || 'Failed to process purchase.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -124,7 +160,16 @@ const PaymentScreen = () => {
             style={{ marginVertical: 15 }}
           />
         ) : isSubscribed ? (
-          <Text style={styles.subscribedText}>You are subscribed to Premium!</Text>
+          <View style={styles.subscribedContainer}>
+            <Text style={styles.subscribedText}>You are subscribed to Premium!</Text>
+            <TouchableOpacity
+              style={[styles.button, styles.backButton]}
+              onPress={() => navigation.navigate('Home')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.buttonText1}>Go to Home</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           subscriptions.map((plan) => (
             <TouchableOpacity
@@ -132,11 +177,20 @@ const PaymentScreen = () => {
               style={[styles.button, styles.subscribeButton]}
               onPress={() => handleSubscription(plan.productId)}
               activeOpacity={0.7}
+              disabled={purchasing === plan.productId}
             >
-              <Text style={styles.buttonText}>
-                {plan.title} -{' '}
-                {plan.subscriptionOfferDetails?.[0]?.pricingPhases.pricingPhaseList[0].formattedPrice}
-              </Text>
+              {purchasing === plan.productId ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <View style={styles.planContainer}>
+                  <Text style={styles.buttonText}>
+                    {plan.title || 'Subscription Plan'}
+                  </Text>
+                  <Text style={styles.priceText}>
+                    {plan.subscriptionOfferDetails?.[0]?.pricingPhases.pricingPhaseList[0].formattedPrice || 'N/A'}
+                  </Text>
+                </View>
+              )}
             </TouchableOpacity>
           ))
         )}
@@ -144,14 +198,6 @@ const PaymentScreen = () => {
         {!loading && subscriptions.length === 0 && !isSubscribed && (
           <Text style={styles.noDevices}>No subscription plans available</Text>
         )}
-
-        <TouchableOpacity
-          style={[styles.button, styles.backButton]}
-          onPress={() => navigation.goBack()}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.buttonText1}>Back</Text>
-        </TouchableOpacity>
       </View>
 
       <SideMenu isOpen={isMenuOpen} onClose={() => setIsMenuOpen(false)} />
@@ -176,7 +222,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     textAlign: 'center',
-    color: '#000', // Changed to black
+    color: '#000',
     fontWeight: 'bold',
     marginBottom: 20,
     marginRight: 18,
@@ -194,43 +240,58 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 14,
     paddingHorizontal: 20,
-    borderRadius: 8, // Reduced for consistency with other screens
+    borderRadius: 8,
     marginVertical: 10,
     alignItems: 'center',
-    borderWidth: 1, // Added subtle border
-    borderColor: '#E0E0E0', // Light gray border
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    width: '80%',
   },
   subscribeButton: {
-    backgroundColor: '#4CAF50', // Kept green for action button
-    width: '80%',
+    backgroundColor: '#4CAF50',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   backButton: {
-    backgroundColor: '#FF4D4D', // Kept red for cancel action
-    width: '80%',
+    backgroundColor: '#FF4D4D',
   },
-  buttonText: {
-    color: '#000', // Changed to black for contrast
-    fontSize: 17,
-    fontWeight: '600',
-    textAlign: 'left',
+  planContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     width: '100%',
   },
+  buttonText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '600',
+  },
+  priceText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '500',
+  },
   buttonText1: {
-    color: '#000', // Changed to black for contrast
+    color: '#fff',
     fontSize: 17,
     fontWeight: '600',
     textAlign: 'center',
     width: '100%',
+  },
+  subscribedContainer: {
+    alignItems: 'center',
+    marginVertical: 20,
   },
   subscribedText: {
     fontSize: 18,
-    color: '#000', // Changed to black
+    color: '#000',
     textAlign: 'center',
-    marginVertical: 20,
+    marginBottom: 20,
     fontWeight: '500',
   },
   noDevices: {
-    color: '#666', // Darker gray for visibility
+    color: '#666',
     fontSize: 18,
     textAlign: 'center',
     marginVertical: 20,
@@ -243,7 +304,7 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     fontSize: 30,
-    color: '#000', // Changed to black
+    color: '#000',
     paddingLeft: 0,
     marginLeft: 0,
   },
